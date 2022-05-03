@@ -125,6 +125,7 @@ impl UI {
             })
             .blur_on()
             .with_background(&[0.0, 0.0, 0.0, 0.5])
+            .with_gradient(2, vec![0.0,1.0], vec![[0.0, 0.0, 0.0, 0.9], [0.0, 0.0, 0.0, 0.1]], (0.3,0.1), (0.7,0.9) )
             .build();
 
         let star = ElemBuider::new(200, 300, 200, 200)

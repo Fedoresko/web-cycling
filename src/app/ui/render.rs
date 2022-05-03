@@ -1,4 +1,5 @@
-use web_sys::WebGlRenderingContext;
+use std::fmt::{Display, Formatter};
+use web_sys::{console, WebGlRenderingContext};
 use web_sys::WebGlRenderingContext as GL;
 
 use crate::app::ui::element::{Element, LineStyle, ShapeSegment};
@@ -14,6 +15,11 @@ pub trait RenderableElement {
     fn get_bg_color(&self) -> [f32; 4];
     fn get_position(&self) -> (i32, i32);
     fn get_size(&self) -> (u32, u32);
+    fn get_gradient_stops_n(&self) -> u8;
+    fn get_gradient_positions(&self) -> &[f32];
+    fn get_gradient_colors(&self) -> &[[f32; 4]];
+    fn get_gradient_start(&self) -> (f32, f32);
+    fn get_gradient_end(&self) -> (f32, f32);
 
     fn uniform(&self, gl: &WebGlRenderingContext, shader: &Shader) {
         let pos_uni = shader.get_uniform_location(gl, "element_pos");
@@ -63,16 +69,22 @@ where
         self.buffer_attributes(gl, shader);
         let color_uni = shader.get_uniform_location(gl, "color");
         let blur_uni = shader.get_uniform_location(gl, "blur");
-        let txrate_uni = shader.get_uniform_location(gl, "tex_rate");
+        let texrate_uni = shader.get_uniform_location(gl, "tex_rate");
         let resolution_uni = shader.get_uniform_location(gl, "iResolution");
+
+        let stops_attrib = gl.get_uniform_location(&shader.program, "n_stops");
+        let stops_color_attrib = gl.get_uniform_location(&shader.program, "color_stops");
+        let stops_positions_attrib = gl.get_uniform_location(&shader.program, "stop_pos");
+        let grad_coords_attrib = gl.get_uniform_location(&shader.program, "gradient_pts");
 
         let w = gl.drawing_buffer_width() as f32;
         let h = gl.drawing_buffer_height() as f32;
 
         gl.uniform2fv_with_f32_array(resolution_uni.as_ref(), &[w, h]);
         gl.uniform4fv_with_f32_array(color_uni.as_ref(), &self.get_style().color);
+        gl.uniform1i(stops_attrib.as_ref(), 0);
         gl.uniform2fv_with_f32_array(
-            txrate_uni.as_ref(),
+            texrate_uni.as_ref(),
             &[state.width_rate(), state.height_rate()],
         );
         gl.uniform1i(shader.get_uniform_location(gl, "iChannel0").as_ref(), 0);
@@ -92,8 +104,19 @@ where
         Element::buffer_f32_data(&gl, &t, pos_attrib as u32, 3);
 
         gl.uniform1i(blur_uni.as_ref(), if self.is_blur() { 1 } else { 0 });
-
         gl.uniform4fv_with_f32_array(color_uni.as_ref(), &self.get_bg_color());
+
+        gl.uniform1i(stops_attrib.as_ref(), self.get_gradient_stops_n() as i32);
+        if self.get_gradient_stops_n() > 0 {
+            console::log_1(&format!("gradient stops {}; start{}; end{}", self.get_gradient_stops_n(), self.get_gradient_start().0, self.get_gradient_end().0).into());
+            let x : Vec<f32> = self.get_gradient_colors().iter().flatten().map(|a| *a).collect();
+            gl.uniform4fv_with_f32_array(stops_color_attrib.as_ref(), x.as_slice());
+            gl.uniform1fv_with_f32_array(stops_positions_attrib.as_ref(), self.get_gradient_positions());
+            let grad_coords = [self.get_gradient_start().0, self.get_gradient_start().1,
+                self.get_gradient_end().0, self.get_gradient_end().1];
+            gl.uniform2fv_with_f32_array(grad_coords_attrib.as_ref(), &grad_coords);
+        }
+
         gl.draw_arrays(GL::TRIANGLE_FAN, 0, (self.get_shape().len() + 1) as i32);
     }
 }

@@ -30,6 +30,11 @@ pub struct Element {
     height: u32,
     children_elems: Vec<Box<Element>>,
     pub draggable: Option<DraggableElement>,
+    gradient_stops: u8,
+    gradient_pos: Option<Vec<f32>>,
+    gradient_colors: Option<Vec<[f32; 4]>>,
+    gradient_start: Option<(f32, f32)>,
+    gradient_end: Option<(f32, f32)>,
 }
 
 pub struct ElemBuider {
@@ -43,6 +48,11 @@ pub struct ElemBuider {
     width: u32,
     height: u32,
     draggable: bool,
+    gradient_stops: u8,
+    gradient_pos: Option<Vec<f32>>,
+    gradient_colors: Option<Vec<[f32; 4]>>,
+    gradient_start: Option<(f32, f32)>,
+    gradient_end: Option<(f32, f32)>,
 }
 
 impl Element {
@@ -95,6 +105,11 @@ impl ElemBuider {
             width: w,
             height: h,
             draggable: false,
+            gradient_stops: 0,
+            gradient_end: None,
+            gradient_start: None,
+            gradient_pos: None,
+            gradient_colors: None,
         }
     }
 
@@ -123,6 +138,19 @@ impl ElemBuider {
         self
     }
 
+    pub fn with_gradient(&mut self, n :u8, pos: Vec<f32>, colors: Vec<[f32; 4]>, start: (f32, f32), end: (f32, f32)) ->  &mut Self {
+        if n < 2 || n > 10 {
+            panic!("Number of stops must be in rage 2-10");
+        }
+
+        self.gradient_stops = n;
+        self.gradient_pos = Some(pos);
+        self.gradient_colors = Some(colors);
+        self.gradient_start = Some(start);
+        self.gradient_end = Some(end);
+        self
+    }
+
     pub fn build(&self) -> Element {
         Element {
             id: self.id,
@@ -140,6 +168,11 @@ impl ElemBuider {
                 None
             },
             children_elems: Vec::new(),
+            gradient_stops: self.gradient_stops,
+            gradient_end: self.gradient_end,
+            gradient_start: self.gradient_start,
+            gradient_pos: self.gradient_pos.clone(),
+            gradient_colors: self.gradient_colors.clone(),
         }
     }
 }
@@ -178,5 +211,25 @@ impl RenderableElement for Element {
 
     fn get_size(&self) -> (u32, u32) {
         (self.width, self.height)
+    }
+
+    fn get_gradient_stops_n(&self) -> u8 {
+        self.gradient_stops
+    }
+
+    fn get_gradient_positions(&self) -> &[f32] {
+        self.gradient_pos.as_ref().unwrap().as_slice()
+    }
+
+    fn get_gradient_colors(&self) -> &[[f32; 4]] {
+        self.gradient_colors.as_ref().unwrap().as_slice()
+    }
+
+    fn get_gradient_start(&self) -> (f32, f32) {
+        self.gradient_start.unwrap()
+    }
+
+    fn get_gradient_end(&self) -> (f32, f32) {
+        self.gradient_end.unwrap()
     }
 }
