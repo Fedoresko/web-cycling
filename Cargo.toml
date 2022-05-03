@@ -1,0 +1,69 @@
+[package]
+name = "webgl-water-tutorial"
+version = "0.1.0"
+authors = ["Chinedu Francis Nwafili <frankie.nwafili@gmail.com>"]
+edition = "2018"
+build = "build.rs"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+bincode = "=1.0.1"
+blender-armature = ">=0.9.0"
+blender-mesh = ">=0.8.0"
+console_error_panic_hook = "=0.1.5"
+js-sys = ">=0.3.6"
+nalgebra = "=0.25.3"
+#wasm-bindgen = ">=0.2.40"
+wasm-bindgen-futures = "0.4.30"
+serde_json = ">=1.0.7"
+
+[build-dependencies]
+bincode = "=1.0.1"
+blender-armature = ">=0.9.0"
+blender-mesh = ">=0.8.0"
+landon = "=0.10.2"
+
+[dependencies.wasm-bindgen]
+version = "0.2.80"
+features = [
+  'serde-serialize',
+]
+
+[dependencies.web-sys]
+version = ">=0.3.6"
+features = [
+  'CssStyleDeclaration',
+  'Document',
+  'Element',
+  'Event',
+  'EventTarget',
+  'HtmlCanvasElement',
+  'HtmlElement',
+  'HtmlImageElement',
+  'HtmlInputElement',
+  'InputEvent',
+  'MouseEvent',
+  'Node',
+  'Touch',
+  'TouchEvent',
+  'TouchList',
+  'WebGlBuffer',
+  'WebGlFramebuffer',
+  'WebGlProgram',
+  'WebGlRenderbuffer',
+  'WebGlRenderingContext',
+  'WebGlShader',
+  'WebGlTexture',
+  'WebGlUniformLocation',
+  'WebGlVertexArrayObject',
+  'WheelEvent',
+  'Window',
+  'KeyboardEvent',
+  'Screen',
+  'console',
+]
+
+[profile.release]
+lto = true
