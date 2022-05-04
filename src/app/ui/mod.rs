@@ -23,6 +23,7 @@ pub mod drag;
 pub mod element;
 pub mod picking;
 pub mod render;
+pub mod path;
 
 pub trait EventTarget {
     fn msg(&mut self, msg: &Msg) -> bool;
