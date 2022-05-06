@@ -1,271 +1,70 @@
-use std::collections::HashMap;
-use std::convert::TryInto;
+use crate::{Render, State};
+use crate::shader::{Shader, ShaderKind};
+use web_sys::WebGlRenderingContext as GL;
+use svg_load::path::RenderablePath;
 
-use lyon::math::Point;
-use lyon::path::PathEvent;
-use lyon::tessellation::*;
-use nalgebra::Vector3;
-use nalgebra::Matrix3;
-use usvg::{LinearGradient, NodeKind, Paint, Tree};
+impl Render for RenderablePath {
+    fn shader_kind(&self) -> ShaderKind { ShaderKind::UI }
 
-#[allow(dead_code)]
-struct RenderablePath {
-    bgcolor: [f32; 4],
-    gradient_stops: u8,
-    gradient_pos: Option<Vec<f32>>,
-    gradient_colors: Option<Vec<[f32; 4]>>,
-    gradient_start: Option<(f32, f32)>,
-    gradient_end: Option<(f32, f32)>,
-}
+    fn buffer_attributes(&self, gl: &GL, shader: &Shader) {
+        let mesh = &self.vertices;
 
-struct GpuVertex {
-    position: [f32; 2],
-    prim_id: u32,
-}
+        let pos_attrib = gl.get_attrib_location(&shader.program, "position");
+        let uv_attrib = gl.get_attrib_location(&shader.program, "uvs");
 
-fn load_svg(filename: &str) {
-    let opt = usvg::Options::default();
-    let file_data = std::fs::read(filename).unwrap();
-    let rtree = Tree::from_data(&file_data, &opt.to_ref()).unwrap();
+        gl.enable_vertex_attrib_array(pos_attrib as u32);
+        gl.enable_vertex_attrib_array(uv_attrib as u32);
 
-    let mut fill_tess = FillTessellator::new();
-    //let mut stroke_tess = StrokeTessellator::new();
+        RenderablePath::buffer_f32_data(
+            &gl,
+            &mesh.vertices.iter()
+                .flat_map(|v| v.position )
+                .collect::<Vec<f32>>(),
+            pos_attrib as u32,
+            3,
+        );
 
-    //let view_box = rtree.svg_node().view_box;
-    //let mut builder = ElemBuider::new(view_box.rect.x() as i32, view_box.rect.y() as i32, view_box.rect.width() as u32, view_box.rect.height() as u32);
-    //let root = builder.with_background(&[0.0,0.0,0.0,0.0]).build();
+        RenderablePath::buffer_u16_indices(&gl, &mesh.indices.iter().map(|i| *i as u16).collect::<Vec<u16>>() );
+    }
 
-    let mut gradients: HashMap<String, LinearGradient> = HashMap::new();
+    fn render(&self, gl: &GL, state: &State, shader: &Shader) {
+        let color_uni = shader.get_uniform_location(gl, "color");
+        let blur_uni = shader.get_uniform_location(gl, "blur");
+        let texrate_uni = shader.get_uniform_location(gl, "tex_rate");
+        let resolution_uni = shader.get_uniform_location(gl, "iResolution");
 
-    let mut mesh: VertexBuffers<_, u32> = VertexBuffers::new();
-    let mut primitives = Vec::new();
+        let stops_attrib = gl.get_uniform_location(&shader.program, "n_stops");
+        let stops_color_attrib = gl.get_uniform_location(&shader.program, "color_stops");
+        let stops_positions_attrib = gl.get_uniform_location(&shader.program, "stop_pos");
+        let grad_coords_attrib = gl.get_uniform_location(&shader.program, "gradient_pts");
 
-    for node in rtree.root().descendants() {
-        let data = &*node.borrow();
-        match data {
-            NodeKind::Svg(_) => {}
-            NodeKind::Defs => {}
-            NodeKind::LinearGradient(gradient) => {
-                gradients.insert(gradient.id.clone(), gradient.clone());
-            }
-            NodeKind::RadialGradient(_) => {}
-            NodeKind::ClipPath(_) => {}
-            NodeKind::Mask(_) => {}
-            NodeKind::Pattern(_) => {}
-            NodeKind::Filter(_) => {}
-            NodeKind::Path(path) => {
-                let t = &data.transform();
-                let m: Matrix3<f32> = Matrix3::new(t.a as f32, t.c as f32, t.e as f32, t.b as f32, t.d as f32, t.f as f32, 0.0, 0.0, 1.0);
-                let paint = &path.fill.as_ref().unwrap().paint;
-                match paint {
-                    Paint::Color(col) => {
-                        primitives.push(RenderablePath {
-                            bgcolor: [col.red as f32 / 256.0, col.green as f32 / 256.0, col.blue as f32 / 256.0, path.fill.as_ref().unwrap().opacity.value() as f32],
-                            gradient_stops: 0,
-                            gradient_colors: None,
-                            gradient_pos: None,
-                            gradient_start: None,
-                            gradient_end: None,
-                        });
-                    }
-                    Paint::Link(link) => {
-                        let grad = gradients.get(link);
-                        if grad.is_some() {
-                            let g = grad.unwrap();
-                            let n = g.stops.len();
-                            let t = g.transform;
-                            primitives.push(RenderablePath {
-                                bgcolor: [1.0, 1.0, 1.0, 1.0],
-                                gradient_stops: n as u8,
-                                gradient_colors: Some(g.stops.iter().map(|s| [s.color.red as f32 / 256.0, s.color.green as f32 / 256.0, s.color.blue as f32 / 256.0, s.opacity.value() as f32]).collect()),
-                                gradient_pos: Some(g.stops.iter().map(|s| s.offset.value() as f32).collect()),
-                                gradient_start: Some(((g.x1 * t.a + g.y1 * t.c + t.e) as f32, (g.x1 * t.b + g.y1 * t.d + t.f) as f32)),
-                                gradient_end: Some(((g.x2 * t.a + g.y2 * t.c + t.e) as f32, (g.x2 * t.b + g.y2 * t.d + t.f) as f32)),
-                            });
-                        } else {
-                            primitives.push(RenderablePath {
-                                bgcolor: [1.0, 1.0, 1.0, 1.0],
-                                gradient_stops: 0,
-                                gradient_colors: None,
-                                gradient_pos: None,
-                                gradient_start: None,
-                                gradient_end: None,
-                            });
-                        }
-                    }
-                }
+        let w = gl.drawing_buffer_width() as f32;
+        let h = gl.drawing_buffer_height() as f32;
 
-                fill_tess
-                    .tessellate(
-                        convert_path(&path),
-                        &FillOptions::tolerance(0.01),
-                        &mut BuffersBuilder::new(
-                            &mut mesh,
-                            VertexCtor {
-                                prim_id: primitives.len() as u32 - 1,
-                                transform: m,
-                            },
-                        ),
-                    )
-                    .expect("Error during tesselation!");
-            }
-            NodeKind::Image(_) => {}
-            NodeKind::Group(_) => {}
+        gl.uniform2fv_with_f32_array(resolution_uni.as_ref(), &[w, h]);
+        gl.uniform4fv_with_f32_array(color_uni.as_ref(), &self.bgcolor);
+        gl.uniform2fv_with_f32_array(
+            texrate_uni.as_ref(),
+            &[state.width_rate(), state.height_rate()],
+        );
+        gl.uniform1i(shader.get_uniform_location(gl, "iChannel0").as_ref(), 0);
+
+        gl.uniform1i(blur_uni.as_ref(), 0);
+
+        gl.uniform1i(stops_attrib.as_ref(), self.gradient_stops as i32);
+        if self.gradient_stops > 0 {
+            // console::log_1(&format!("gradient stops {}; start{}; end{}", self.get_gradient_stops_n(), self.get_gradient_start().0, self.get_gradient_end().0).into());
+            let x : Vec<f32> = self.gradient_colors.as_ref().unwrap().iter().flatten().map(|a| *a).collect();
+            gl.uniform4fv_with_f32_array(stops_color_attrib.as_ref(), x.as_slice());
+            gl.uniform1fv_with_f32_array(stops_positions_attrib.as_ref(), self.gradient_pos.as_ref().unwrap() );
+            let start = self.gradient_start.unwrap();
+            let end = self.gradient_end.unwrap();
+            let grad_coords = [start.0, start.1, end.0, end.1];
+            gl.uniform2fv_with_f32_array(grad_coords_attrib.as_ref(), &grad_coords);
         }
+
+        let num_indices = self.vertices.indices.len();
+        gl.draw_elements_with_i32(GL::TRIANGLES, num_indices as i32, GL::UNSIGNED_SHORT, 0);
     }
 }
 
-pub struct VertexCtor {
-    pub prim_id: u32,
-    pub transform: Matrix3<f32>,
-}
-
-impl FillVertexConstructor<GpuVertex> for VertexCtor {
-    fn new_vertex(&mut self, vertex: FillVertex) -> GpuVertex {
-        let position = vertex.position().to_array();
-        let vec = self.transform.clone() * Vector3::new(position[0], position[1], 0.0);
-        GpuVertex {
-            position: vec.columns(0, 2).as_slice().try_into().expect(""),
-            prim_id: self.prim_id,
-        }
-    }
-}
-
-impl StrokeVertexConstructor<GpuVertex> for VertexCtor {
-    fn new_vertex(&mut self, vertex: StrokeVertex) -> GpuVertex {
-        GpuVertex {
-            position: vertex.position().to_array(),
-            prim_id: self.prim_id,
-        }
-    }
-}
-
-fn point(x: &f64, y: &f64) -> Point {
-    Point::new((*x) as f32, (*y) as f32)
-}
-
-pub struct PathConvIter<'a> {
-    iter: std::slice::Iter<'a, usvg::PathSegment>,
-    prev: Point,
-    first: Point,
-    needs_end: bool,
-    deferred: Option<PathEvent>,
-}
-
-impl<'l> Iterator for PathConvIter<'l> {
-    type Item = PathEvent;
-    fn next(&mut self) -> Option<PathEvent> {
-        if self.deferred.is_some() {
-            return self.deferred.take();
-        }
-
-        let next = self.iter.next();
-        match next {
-            Some(usvg::PathSegment::MoveTo { x, y }) => {
-                if self.needs_end {
-                    let last = self.prev;
-                    let first = self.first;
-                    self.needs_end = false;
-                    self.prev = point(x, y);
-                    self.deferred = Some(PathEvent::Begin { at: self.prev });
-                    self.first = self.prev;
-                    Some(PathEvent::End {
-                        last,
-                        first,
-                        close: false,
-                    })
-                } else {
-                    self.first = point(x, y);
-                    self.needs_end = true;
-                    Some(PathEvent::Begin { at: self.first })
-                }
-            }
-            Some(usvg::PathSegment::LineTo { x, y }) => {
-                self.needs_end = true;
-                let from = self.prev;
-                self.prev = point(x, y);
-                Some(PathEvent::Line {
-                    from,
-                    to: self.prev,
-                })
-            }
-            Some(usvg::PathSegment::CurveTo {
-                     x1,
-                     y1,
-                     x2,
-                     y2,
-                     x,
-                     y,
-                 }) => {
-                self.needs_end = true;
-                let from = self.prev;
-                self.prev = point(x, y);
-                Some(PathEvent::Cubic {
-                    from,
-                    ctrl1: point(x1, y1),
-                    ctrl2: point(x2, y2),
-                    to: self.prev,
-                })
-            }
-            Some(usvg::PathSegment::ClosePath) => {
-                self.needs_end = false;
-                self.prev = self.first;
-                Some(PathEvent::End {
-                    last: self.prev,
-                    first: self.first,
-                    close: true,
-                })
-            }
-            None => {
-                if self.needs_end {
-                    self.needs_end = false;
-                    let last = self.prev;
-                    let first = self.first;
-                    Some(PathEvent::End {
-                        last,
-                        first,
-                        close: false,
-                    })
-                } else {
-                    None
-                }
-            }
-        }
-    }
-}
-
-pub fn convert_path(p: &usvg::Path) -> PathConvIter {
-    PathConvIter {
-        iter: p.data.iter(),
-        first: Point::new(0.0, 0.0),
-        prev: Point::new(0.0, 0.0),
-        deferred: None,
-        needs_end: false,
-    }
-}
-
-static FALLBACK_COLOR: usvg::Color = usvg::Color { red: 100, green: 100, blue: 100 };
-
-pub fn convert_stroke(s: &usvg::Stroke) -> (usvg::Color, StrokeOptions) {
-    let color = match s.paint {
-        usvg::Paint::Color(c) => c,
-        _ => FALLBACK_COLOR,
-    };
-    let linecap = match s.linecap {
-        usvg::LineCap::Butt => LineCap::Butt,
-        usvg::LineCap::Square => LineCap::Square,
-        usvg::LineCap::Round => LineCap::Round,
-    };
-    let linejoin = match s.linejoin {
-        usvg::LineJoin::Miter => LineJoin::Miter,
-        usvg::LineJoin::Bevel => LineJoin::Bevel,
-        usvg::LineJoin::Round => LineJoin::Round,
-    };
-
-    let opt = StrokeOptions::tolerance(0.01)
-        .with_line_width(s.width.value() as f32)
-        .with_line_cap(linecap)
-        .with_line_join(linejoin);
-
-    (color, opt)
-}

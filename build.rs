@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use bincode;
 use blender_mesh;
 use landon;
+use svg_load::svgload::load_svg;
 
 fn main() {
     let blender_files = vec![
@@ -51,4 +52,9 @@ fn main() {
 
     let mut f = File::create("./armatures.bytes").unwrap();
     f.write_all(&flattened_armatures[..]).unwrap();
+
+    let _svg = load_svg(r"./test.svg");
+    let svg = bincode::serialize(&_svg).unwrap();
+    let mut f = File::create("./svgs.bytes").unwrap();
+    f.write_all(&svg[..]).unwrap();
 }

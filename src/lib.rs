@@ -11,7 +11,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::*;
 use web_sys::WebGlRenderingContext as GL;
 use crate::animation::{Animation, Animator, CompositeAnimation};
-use crate::element::{ElemBuider, LineStyle, ShapeSegment};
+use crate::element::{ElemBuilder, LineStyle, ShapeSegment};
 use crate::fields::{FieldSelector, Vec4};
 
 use crate::load_texture_img::load_texture_image;
@@ -151,7 +151,7 @@ impl InnerWebClient {
                 event_id: None,
             })
             .collect();
-        let small_button = ElemBuider::new(600, 300, 200, 50)
+        let small_button = ElemBuilder::new(600, 300, 200, 50)
             .with_shape(&shape)
             .with_background(&[0.0, 0.0, 0.0, 1.0])
             .with_line_style(&LineStyle {
@@ -162,7 +162,7 @@ impl InnerWebClient {
             .with_gradient(3, vec![0.25, 0.5, 0.75],
                            vec![Vec4::from([0.5, 0.5, 0.5, 1.0]), Vec4::from([0.9, 0.9, 0.9, 1.0]), Vec4::from([0.5, 0.5, 0.5, 1.0])], (0.0, 0.0), (1.0, 1.0)).build();
 
-        let star = ElemBuider::new(200, 300, 200, 200)
+        let star = ElemBuilder::new(200, 300, 200, 200)
             .with_shape(&Self::star_shape())
             .with_line_style(&LineStyle {
                 color: [0.8, 0.2, 0.0, 0.75],
@@ -173,7 +173,7 @@ impl InnerWebClient {
             .draggable()
             .build();
 
-        let big_box = ElemBuider::new(100, 100, w - 200, h - 200)
+        let big_box = ElemBuilder::new(100, 100, w - 200, h - 200)
             .with_shape(&shape)
             .with_line_style(&LineStyle {
                 color: [1.0, 1.0, 1.0, 1.0],

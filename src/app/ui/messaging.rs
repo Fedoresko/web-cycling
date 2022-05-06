@@ -3,10 +3,8 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use web_sys::console;
 use crate::animation::Animator;
-use crate::element::{ElemBuider, Element};
+use crate::element::{ElemBuilder, Element};
 use derivative::Derivative;
-use crate::State;
-
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Derivative)]
@@ -105,7 +103,7 @@ impl HandlersBean {
         HandlersBean{
             animations: RefCell::new(Vec::new()),
             elem_handlers: HashMap::new(),
-            elements: vec![RefCell::new(ElemBuider::new(0, 0, w, h).build())],
+            elements: vec![RefCell::new(ElemBuilder::new(0, 0, w, h).build())],
         }
     }
 

@@ -1,5 +1,3 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
-
 use crate::app::ui::drag::DraggableElement;
 use crate::app::ui::render::RenderableElement;
 use crate::fields::{FieldSelector, Vec4};
@@ -39,7 +37,7 @@ pub struct Element {
     gradient_end: Option<(f32, f32)>,
 }
 
-pub struct ElemBuider {
+pub struct ElemBuilder {
     id: usize,
     shape: Vec<ShapeSegment>,
     style: LineStyle,
@@ -112,9 +110,9 @@ impl ShapeSegment {
     }
 }
 
-impl ElemBuider {
+impl ElemBuilder {
     pub fn new(x: i32, y: i32, w: u32, h: u32) -> Self {
-        ElemBuider {
+        ElemBuilder {
             id: 0,
             shape: vec![
                 ShapeSegment::new(0.0, 0.0),

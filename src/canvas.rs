@@ -11,7 +11,7 @@ use web_sys::WebGlRenderingContext as GL;
 use crate::messaging::Msg;
 use crate::{EventTarget, WebEventDispatcher};
 
-pub static APP_DIV_ID: &'static str = "webgl-water-tutorial";
+pub static APP_DIV_ID: &'static str = "web-cycling";
 
 pub(crate) type EventDispatcher<'a> = &'a Rc<RefCell<Option<WebEventDispatcher>>>;
 

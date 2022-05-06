@@ -1,9 +1,9 @@
 use std::cell::{Ref, RefCell, RefMut};
-use std::collections::HashMap;
 use std::convert::Into;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use std::usize;
+use svg_load::path::RenderablePath;
 
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
@@ -45,6 +45,8 @@ pub struct UI {
     start_drag_y: i32,
 
     handling: Rc<RefCell<HandlersBean>>,
+
+    svg: Option<Vec<RenderablePath>>,
 }
 
 impl UI {
@@ -80,6 +82,7 @@ impl UI {
             start_drag_x: 0,
             start_drag_y: 0,
             handling: Rc::new(RefCell::new(handling)),
+            svg: None,
         }
     }
 
