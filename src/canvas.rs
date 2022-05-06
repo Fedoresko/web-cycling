@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use serde_json;
@@ -7,10 +8,20 @@ use wasm_bindgen::prelude::*;
 use web_sys::*;
 use web_sys::WebGlRenderingContext as GL;
 
-use crate::{EventDispatcher, send_msg};
 use crate::app::Msg;
+use crate::{EventTarget, WebEventDispatcher};
 
 pub static APP_DIV_ID: &'static str = "webgl-water-tutorial";
+
+pub(crate) type EventDispatcher<'a> = &'a Rc<RefCell<Option<WebEventDispatcher>>>;
+
+pub fn send_msg(dispatcher: EventDispatcher, msg: &Msg) {
+    dispatcher.as_ref()
+        .borrow_mut()
+        .as_mut()
+        .unwrap()
+        .msg(msg);
+}
 
 pub fn create_webgl_context(canvas: &HtmlCanvasElement) -> Result<WebGlRenderingContext, JsValue> {
     let result = JsValue::from_serde(&serde_json::json!({
@@ -27,7 +38,7 @@ pub fn create_webgl_context(canvas: &HtmlCanvasElement) -> Result<WebGlRendering
     Ok(gl)
 }
 
-pub fn init_canvas(event_dispatcher: &EventDispatcher) -> Result<HtmlCanvasElement, JsValue> {
+pub fn init_canvas(event_dispatcher: EventDispatcher) -> Result<HtmlCanvasElement, JsValue> {
     let window = window().unwrap();
     let document = window.document().unwrap();
     let canvas = document
@@ -38,17 +49,17 @@ pub fn init_canvas(event_dispatcher: &EventDispatcher) -> Result<HtmlCanvasEleme
     canvas.set_width(window.inner_width()?.as_f64().unwrap() as u32);
     canvas.set_height(window.inner_height()?.as_f64().unwrap() as u32);
 
-    attach_mouse_down_handler(&canvas, Rc::clone(event_dispatcher))?;
-    attach_mouse_up_handler(&canvas, Rc::clone(event_dispatcher))?;
-    attach_mouse_move_handler(&canvas, Rc::clone(event_dispatcher))?;
-    attach_mouse_wheel_handler(&canvas, Rc::clone(event_dispatcher))?;
+    attach_mouse_down_handler(&canvas, event_dispatcher)?;
+    attach_mouse_up_handler(&canvas, event_dispatcher)?;
+    attach_mouse_move_handler(&canvas, event_dispatcher)?;
+    attach_mouse_wheel_handler(&canvas, event_dispatcher)?;
 
-    attach_touch_start_handler(&canvas, Rc::clone(event_dispatcher))?;
-    attach_touch_move_handler(&canvas, Rc::clone(event_dispatcher))?;
-    attach_touch_end_handler(&canvas, Rc::clone(event_dispatcher))?;
-    attach_key_handler(Rc::clone(event_dispatcher))?;
-    attach_key_up_handler(Rc::clone(event_dispatcher))?;
-    attach_size_handler(&canvas, Rc::clone(event_dispatcher))?;
+    attach_touch_start_handler(&canvas, event_dispatcher)?;
+    attach_touch_move_handler(&canvas, event_dispatcher)?;
+    attach_touch_end_handler(&canvas, event_dispatcher)?;
+    attach_key_handler(event_dispatcher)?;
+    attach_key_up_handler(event_dispatcher)?;
+    attach_size_handler(&canvas, event_dispatcher)?;
 
     let app_div: HtmlElement = match document.get_element_by_id(APP_DIV_ID) {
         Some(container) => container.dyn_into()?,
@@ -69,6 +80,7 @@ fn attach_mouse_down_handler(
     canvas: &HtmlCanvasElement,
     event_dispatcher: EventDispatcher,
 ) -> Result<(), JsValue> {
+    let event_dispatcher = Rc::clone(event_dispatcher);
     let handler = move |event: MouseEvent| {
         let x = event.client_x();
         let y = event.client_y();
@@ -88,6 +100,7 @@ fn attach_mouse_up_handler(
     canvas: &HtmlCanvasElement,
     event_dispatcher: EventDispatcher,
 ) -> Result<(), JsValue> {
+    let event_dispatcher = Rc::clone(event_dispatcher);
     let handler = move |_event: MouseEvent| {
         let x = _event.client_x();
         let y = _event.client_y();
@@ -105,6 +118,7 @@ fn attach_mouse_move_handler(
     canvas: &HtmlCanvasElement,
     event_dispatcher: EventDispatcher,
 ) -> Result<(), JsValue> {
+    let event_dispatcher = Rc::clone(event_dispatcher);
     let handler = move |event: MouseEvent| {
         event.prevent_default();
         let x = event.client_x();
@@ -123,6 +137,7 @@ fn attach_mouse_wheel_handler(
     canvas: &HtmlCanvasElement,
     event_dispatcher: EventDispatcher,
 ) -> Result<(), JsValue> {
+    let event_dispatcher = Rc::clone(event_dispatcher);
     let handler = move |event: WheelEvent| {
         event.prevent_default();
 
@@ -142,6 +157,7 @@ fn attach_touch_start_handler(
     canvas: &HtmlCanvasElement,
     event_dispatcher: EventDispatcher,
 ) -> Result<(), JsValue> {
+    let event_dispatcher = Rc::clone(event_dispatcher);
     let handler = move |event: TouchEvent| {
         let touch = event.touches().item(0).expect("First Touch");
         let x = touch.client_x();
@@ -157,6 +173,7 @@ fn attach_touch_start_handler(
 }
 
 fn attach_key_up_handler(event_dispatcher: EventDispatcher) -> Result<(), JsValue> {
+    let event_dispatcher = Rc::clone(event_dispatcher);
     let handler = move |event: KeyboardEvent| {
         send_msg(&event_dispatcher, &Msg::KeyUp(event.key_code()));
     };
@@ -173,6 +190,7 @@ fn attach_key_up_handler(event_dispatcher: EventDispatcher) -> Result<(), JsValu
 }
 
 fn attach_key_handler(event_dispatcher: EventDispatcher) -> Result<(), JsValue> {
+    let event_dispatcher = Rc::clone(event_dispatcher);
     let handler = move |event: KeyboardEvent| {
         send_msg(&event_dispatcher, &Msg::KeyDown(event.key_code()));
     };
@@ -192,6 +210,7 @@ fn attach_size_handler(
     _canvas: &HtmlCanvasElement,
     event_dispatcher: EventDispatcher,
 ) -> Result<(), JsValue> {
+    let event_dispatcher = Rc::clone(event_dispatcher);
     let handler = move || {
         let window = window().unwrap();
         let w = window.inner_width().unwrap().as_f64().unwrap();
@@ -212,6 +231,7 @@ fn attach_touch_move_handler(
     canvas: &HtmlCanvasElement,
     event_dispatcher: EventDispatcher,
 ) -> Result<(), JsValue> {
+    let event_dispatcher = Rc::clone(event_dispatcher);
     let handler = move |event: TouchEvent| {
         event.prevent_default();
         let touch = event.touches().item(0).expect("First Touch");
@@ -231,6 +251,7 @@ fn attach_touch_end_handler(
     canvas: &HtmlCanvasElement,
     event_dispatcher: EventDispatcher,
 ) -> Result<(), JsValue> {
+    let event_dispatcher = Rc::clone(event_dispatcher);
     let handler = move |_event: TouchEvent| {
         let touch = _event.touches().item(0).expect("First Touch");
         let x = touch.client_x();

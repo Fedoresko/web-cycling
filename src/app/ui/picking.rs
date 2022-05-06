@@ -6,14 +6,14 @@ use crate::render::Render;
 use crate::shader::Shader;
 
 pub trait PickingRender {
-    fn render_for_pick(&self, gl: &GL, shader: &Shader) -> u32;
+    fn render_for_pick(&self, gl: &GL, shader: &Shader) -> usize;
 }
 
 impl<T> PickingRender for T
     where
         T: RenderableElement,
 {
-    fn render_for_pick(&self, gl: &GL, shader: &Shader) -> u32 {
+    fn render_for_pick(&self, gl: &GL, shader: &Shader) -> usize {
         self.uniform(gl, shader);
         let color_uni = shader.get_uniform_location(gl, "color");
 

@@ -11,7 +11,7 @@ use crate::State;
 // static BIRD_END_Z: f32 = 30.0;
 
 impl WebRenderer {
-    pub fn render_picking(&self, gl: &GL, mesh: &impl PickingRender) -> u32 {
+    pub fn render_picking(&self, gl: &GL, mesh: &impl PickingRender) -> usize {
         self.shader_sys.use_program(gl, UIPicking);
         let shader = self.shader_sys.get_shader(&UIPicking).unwrap();
         mesh.render_for_pick(gl, &shader)

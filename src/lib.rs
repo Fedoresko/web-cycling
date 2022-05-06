@@ -1,6 +1,7 @@
 extern crate wasm_bindgen;
 
 use std::cell::RefCell;
+use std::ops::Deref;
 use std::rc::Rc;
 
 use console_error_panic_hook;
@@ -9,8 +10,6 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use web_sys::*;
 use web_sys::WebGlRenderingContext as GL;
-
-use ui::EventTarget;
 
 use crate::load_texture_img::load_texture_image;
 use crate::render::framebuffer::Framebuffer;
@@ -32,10 +31,14 @@ trait WC {
     fn load_textures(&self);
 }
 
+pub trait EventTarget {
+    fn msg(&mut self, msg: &Msg) -> bool;
+}
+
 /// Used to run the application from the web
 #[wasm_bindgen]
 pub struct WebClient {
-    wc: Rc<dyn WC>,
+    wc: Rc<RefCell<dyn WC>>,
 }
 
 ///Dispatch UI events
@@ -105,7 +108,7 @@ impl InnerWebClient {
 impl WC for InnerWebClient {
     /// Update our simulation
     fn update(&self, dt: f32) {
-        self.app.store.borrow_mut().msg(&Msg::AdvanceClock(dt));
+        self.app.store.as_ref().borrow_mut().msg(&Msg::AdvanceClock(dt));
     }
 
     /// Render the scene. `index.html` will call this once every requestAnimationFrame
@@ -174,7 +177,7 @@ impl WebClient {
     #[wasm_bindgen(constructor)]
     pub fn new() -> WebClient {
         WebClient {
-            wc: Rc::new(InnerWebClient::new()),
+            wc: Rc::new(RefCell::new(InnerWebClient::new())),
         }
     }
 
@@ -183,15 +186,15 @@ impl WebClient {
     pub fn start(&self) -> Result<(), JsValue> {
         let f = Rc::new(RefCell::new(None));
         let g = f.clone();
-        self.wc.load_textures();
+        self.wc.borrow().load_textures();
         let wcc = self.wc.clone();
 
         let mut time = Date::now();
-        *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
+        *g.as_ref().borrow_mut() = Some(Closure::wrap(Box::new(move || {
             let dt = Date::now() - time;
 
-            wcc.update(dt as f32);
-            wcc.render();
+            wcc.borrow().update(dt as f32);
+            wcc.as_ref().borrow_mut().render();
 
             time = Date::now();
 

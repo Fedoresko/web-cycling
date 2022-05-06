@@ -1,7 +1,8 @@
-use wasm_bindgen::__rt::core::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::app::ui::drag::DraggableElement;
 use crate::app::ui::render::RenderableElement;
+use crate::fields::{FieldSelector, Vec4};
 
 #[derive(Clone, Copy)]
 pub struct LineStyle {
@@ -19,11 +20,11 @@ pub struct ShapeSegment {
 }
 
 pub struct Element {
-    id: u32,
+    id: usize,
     shape: Vec<ShapeSegment>,
     style: LineStyle,
     blur: bool,
-    bgcolor: [f32; 4],
+    bgcolor: Vec4,
     pub x: i32,
     pub y: i32,
     width: u32,
@@ -32,17 +33,17 @@ pub struct Element {
     pub draggable: Option<DraggableElement>,
     gradient_stops: u8,
     gradient_pos: Option<Vec<f32>>,
-    gradient_colors: Option<Vec<[f32; 4]>>,
+    gradient_colors: Option<Vec<Vec4>>,
     gradient_start: Option<(f32, f32)>,
     gradient_end: Option<(f32, f32)>,
 }
 
 pub struct ElemBuider {
-    id: u32,
+    id: usize,
     shape: Vec<ShapeSegment>,
     style: LineStyle,
     blur: bool,
-    bgcolor: [f32; 4],
+    bgcolor: Vec4,
     x: i32,
     y: i32,
     width: u32,
@@ -50,18 +51,42 @@ pub struct ElemBuider {
     draggable: bool,
     gradient_stops: u8,
     gradient_pos: Option<Vec<f32>>,
-    gradient_colors: Option<Vec<[f32; 4]>>,
+    gradient_colors: Option<Vec<Vec4>>,
     gradient_start: Option<(f32, f32)>,
     gradient_end: Option<(f32, f32)>,
 }
 
-impl Element {
+impl Element  {
     pub fn children(&self) -> &[Box<Element>] {
         self.children_elems.as_slice()
     }
 
     pub fn add_child(&mut self, child: Element) {
         self.children_elems.push(Box::new(child))
+    }
+
+    pub fn set(&mut self, field: FieldSelector) {
+        match field {
+            FieldSelector::X(value) => { self.x = value; }
+            FieldSelector::Y(value) => { self.y = value; }
+            FieldSelector::Width(value) => { self.width = value; }
+            FieldSelector::Height(value) => { self.height = value; }
+            FieldSelector::BGColor(value) => { self.bgcolor = value; }
+            FieldSelector::GradientPos0(value) => { self.gradient_pos.as_mut().unwrap()[0] = value; }
+            FieldSelector::GradientColors0(value) => { self.gradient_colors.as_mut().unwrap()[0] = value; }
+            FieldSelector::GradientPos1(value) => { self.gradient_pos.as_mut().unwrap()[1] = value; }
+            FieldSelector::GradientColors1(value) => { self.gradient_colors.as_mut().unwrap()[1] = value; }
+            FieldSelector::GradientPos2(value) => { self.gradient_pos.as_mut().unwrap()[2] = value; }
+            FieldSelector::GradientColors2(value) => { self.gradient_colors.as_mut().unwrap()[2] = value; }
+            FieldSelector::GradientPos3(value) => { self.gradient_pos.as_mut().unwrap()[3] = value; }
+            FieldSelector::GradientColors3(value) => { self.gradient_colors.as_mut().unwrap()[3] = value; }
+            FieldSelector::GradientStart(value) => { self.gradient_start = Some( value ); }
+            FieldSelector::GradientEnd(value) => { self.gradient_end = Some( value ); }
+        }
+    }
+
+    pub fn get_id(&self) -> usize {
+        self.id
     }
 }
 
@@ -88,9 +113,9 @@ impl ShapeSegment {
 
 impl ElemBuider {
     pub fn new(x: i32, y: i32, w: u32, h: u32) -> Self {
-        static COUNTER: AtomicU32 = AtomicU32::new(1);
+        static COUNTER: AtomicUsize = AtomicUsize::new(1);
         ElemBuider {
-            id: COUNTER.fetch_add(1, Ordering::Relaxed) * 80,
+            id: COUNTER.fetch_add(1, Ordering::Relaxed),
             shape: vec![
                 ShapeSegment::new(0.0, 0.0),
                 ShapeSegment::new(0.0, 1.0),
@@ -99,7 +124,7 @@ impl ElemBuider {
             ],
             style: LineStyle::default(),
             blur: false,
-            bgcolor: [0.3, 0.3, 0.3, 1.0],
+            bgcolor: Vec4::from([0.3, 0.3, 0.3, 1.0]),
             x,
             y,
             width: w,
@@ -129,7 +154,7 @@ impl ElemBuider {
     }
 
     pub fn with_background(&mut self, color: &[f32; 4]) -> &mut Self {
-        self.bgcolor = *color;
+        self.bgcolor = Vec4::from(*color);
         self
     }
 
@@ -138,7 +163,7 @@ impl ElemBuider {
         self
     }
 
-    pub fn with_gradient(&mut self, n :u8, pos: Vec<f32>, colors: Vec<[f32; 4]>, start: (f32, f32), end: (f32, f32)) ->  &mut Self {
+    pub fn with_gradient(&mut self, n :u8, pos: Vec<f32>, colors: Vec<Vec4>, start: (f32, f32), end: (f32, f32)) ->  &mut Self {
         if n < 2 || n > 10 {
             panic!("Number of stops must be in rage 2-10");
         }
@@ -178,7 +203,7 @@ impl ElemBuider {
 }
 
 impl RenderableElement for Element {
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 
@@ -195,7 +220,7 @@ impl RenderableElement for Element {
     }
 
     fn get_bg_color(&self) -> [f32; 4] {
-        self.bgcolor
+        self.bgcolor.into()
     }
 
     fn get_position(&self) -> (i32, i32) {
@@ -221,7 +246,7 @@ impl RenderableElement for Element {
         self.gradient_pos.as_ref().unwrap().as_slice()
     }
 
-    fn get_gradient_colors(&self) -> &[[f32; 4]] {
+    fn get_gradient_colors(&self) -> &[Vec4] {
         self.gradient_colors.as_ref().unwrap().as_slice()
     }
 

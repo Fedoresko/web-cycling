@@ -1,57 +1,98 @@
 use js_sys::Date;
-use std::ops::{Add, Mul, Sub};
+use crate::fields::FieldSelector;
+use crate::element::Element;
 
 #[allow(dead_code)]
-pub struct Animation<'a, T> {
-    target: &'a mut T,
+pub struct Animation {
+    target_id: usize,
     duration: f64,
+    from: FieldSelector,
+    to: FieldSelector,
     repeat: bool,
-    act: Box<dyn Fn(f64) -> T + 'a>,
+    act: Box<dyn Fn(f64, FieldSelector, FieldSelector) -> FieldSelector>,
     started: f64,
 }
 
+pub struct CompositeAnimation {
+    pub animations: Vec<Box<dyn Animator>>,
+}
+
+pub trait Animator {
+    fn animate(&mut self, elem: &mut Element);
+    fn get_target(&self) -> usize;
+    fn is_finished(&self) -> bool;
+}
+
+static FAR_FUTURE: f64 = 1e20;
+
 #[allow(dead_code)]
-impl<'a, T> Animation<'a, T>
-where
-    T: Sub<Output = T> + Add<Output = T> + Mul<f64, Output = T> + Copy + 'a,
-{
-    const FAR_FUTURE: f64 = 1e20;
-
-    pub fn linear(target: &'a mut T, from: T, to: T, duration: f64) -> Animation<'a, T> {
+impl Animation {
+    pub fn linear(target_id: usize, from: FieldSelector, to: FieldSelector, duration: f64) -> Animation {
         Animation {
-            target,
+            target_id,
             duration,
+            from,
+            to,
             repeat: false,
-            started: Self::FAR_FUTURE,
-            act: Box::new(move |pg| from + (to - from) * pg),
+            started: Date::now(),
+            act: Box::new(|pg, from, to, | {from + (to - from) * pg}),
         }
     }
 
-    pub fn fade_in_out(target: &'a mut T, from: T, to: T, duration: f64) -> Animation<'a, T> {
+    pub fn fade_in_out(target_id: usize, from: FieldSelector, to: FieldSelector, duration: f64) -> Animation {
         Animation {
-            target,
+            target_id,
+            from,
+            to,
             duration,
             repeat: false,
-            started: Self::FAR_FUTURE,
-            act: Box::new(move |pg| from + (to - from) * (1.0 - (pg * 2.0 - 1.0).abs())),
-        }
-    }
-
-    pub fn start(&mut self) {
-        self.started = Date::now();
-    }
-
-    pub fn animate(&mut self) {
-        let time = Date::now();
-        let progress = (time - self.started) / self.duration;
-        if progress > 0.0 && progress <= 1.0 {
-            *(self.target) = (self.act)(progress);
-        } else if progress > 1.0 {
-            if self.repeat {
-                self.start();
-            } else {
-                self.started = Self::FAR_FUTURE;
-            }
+            started: Date::now(),
+            act: Box::new(|pg, from, to| from + (to - from) * (1.0 - (pg * 2.0 - 1.0).abs())),
         }
     }
 }
+
+impl Animator for Animation {
+    fn get_target(&self) -> usize {
+        self.target_id
+    }
+
+    fn animate(&mut self, elem: &mut Element) {
+        // if elem.get_id() == self.target_id {
+            let time = Date::now();
+            let progress = (time - self.started) / self.duration;
+            if progress > 0.0 && progress <= 1.0 {
+                elem.set((self.act)(progress, self.from, self.to) );
+            } else if progress > 1.0 {
+                if self.repeat {
+                    self.started = Date::now();
+                } else {
+                    self.started = FAR_FUTURE;
+                }
+            }
+        // } else {
+        //     console::log_1(&format!("Wrong coincedence {} and {}",self.target_id, elem.get_id()).into());
+        // }
+    }
+
+    fn is_finished(&self) -> bool {
+        return self.started == FAR_FUTURE
+    }
+}
+
+impl Animator for CompositeAnimation {
+    fn animate(&mut self, elem: &mut Element) {
+        for anim in &mut self.animations {
+            anim.animate(elem);
+        }
+    }
+
+    fn get_target(&self) -> usize {
+        self.animations.get(0).unwrap().get_target()
+    }
+
+    fn is_finished(&self) -> bool {
+        self.animations.iter().map(|a| a.is_finished()).reduce(|a,b| a && b).unwrap()
+    }
+}
+

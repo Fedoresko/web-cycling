@@ -1,13 +1,12 @@
 use std::collections::HashMap;
-use lyon::math::Point;
-use lyon::path::PathEvent;
-use usvg::{NodeExt, NodeKind, Tree, LinearGradient, Paint};
-use lyon::tessellation::*;
-use nalgebra::{ArrayStorage, DimAdd, DVector, Vector3};
-use crate::element::{ElemBuider, Element, ShapeSegment};
-use nalgebra::Matrix3;
 use std::convert::TryInto;
 
+use lyon::math::Point;
+use lyon::path::PathEvent;
+use lyon::tessellation::*;
+use nalgebra::Vector3;
+use nalgebra::Matrix3;
+use usvg::{LinearGradient, NodeKind, Paint, Tree};
 
 struct RenderablePath {
     bgcolor: [f32; 4],
@@ -31,11 +30,11 @@ fn load_svg(filename: &str) {
     let mut fill_tess = FillTessellator::new();
     //let mut stroke_tess = StrokeTessellator::new();
 
-    let view_box = rtree.svg_node().view_box;
-    let mut builder = ElemBuider::new(view_box.rect.x() as i32, view_box.rect.y() as i32, view_box.rect.width() as u32, view_box.rect.height() as u32);
+    //let view_box = rtree.svg_node().view_box;
+    //let mut builder = ElemBuider::new(view_box.rect.x() as i32, view_box.rect.y() as i32, view_box.rect.width() as u32, view_box.rect.height() as u32);
     //let root = builder.with_background(&[0.0,0.0,0.0,0.0]).build();
 
-    let mut gradients : HashMap<String, LinearGradient> = HashMap::new();
+    let mut gradients: HashMap<String, LinearGradient> = HashMap::new();
 
     let mut mesh: VertexBuffers<_, u32> = VertexBuffers::new();
     let mut primitives = Vec::new();
@@ -55,11 +54,11 @@ fn load_svg(filename: &str) {
             NodeKind::Filter(_) => {}
             NodeKind::Path(path) => {
                 let t = &data.transform();
-                let m : Matrix3<f32> = Matrix3::new(t.a as f32, t.c as f32, t.e as f32, t.b as f32, t.d as f32, t.f as f32, 0.0,0.0,1.0);
+                let m: Matrix3<f32> = Matrix3::new(t.a as f32, t.c as f32, t.e as f32, t.b as f32, t.d as f32, t.f as f32, 0.0, 0.0, 1.0);
                 let paint = &path.fill.as_ref().unwrap().paint;
                 match paint {
                     Paint::Color(col) => {
-                        primitives.push(RenderablePath{
+                        primitives.push(RenderablePath {
                             bgcolor: [col.red as f32 / 256.0, col.green as f32 / 256.0, col.blue as f32 / 256.0, path.fill.as_ref().unwrap().opacity.value() as f32],
                             gradient_stops: 0,
                             gradient_colors: None,
@@ -74,16 +73,16 @@ fn load_svg(filename: &str) {
                             let g = grad.unwrap();
                             let n = g.stops.len();
                             let t = g.transform;
-                            primitives.push(RenderablePath{
+                            primitives.push(RenderablePath {
                                 bgcolor: [1.0, 1.0, 1.0, 1.0],
                                 gradient_stops: n as u8,
                                 gradient_colors: Some(g.stops.iter().map(|s| [s.color.red as f32 / 256.0, s.color.green as f32 / 256.0, s.color.blue as f32 / 256.0, s.opacity.value() as f32]).collect()),
                                 gradient_pos: Some(g.stops.iter().map(|s| s.offset.value() as f32).collect()),
-                                gradient_start: Some(((g.x1*t.a + g.y1*t.c + t.e) as f32, (g.x1*t.b + g.y1*t.d + t.f) as f32)),
-                                gradient_end: Some(((g.x2*t.a + g.y2*t.c + t.e) as f32, (g.x2*t.b + g.y2*t.d + t.f) as f32)),
+                                gradient_start: Some(((g.x1 * t.a + g.y1 * t.c + t.e) as f32, (g.x1 * t.b + g.y1 * t.d + t.f) as f32)),
+                                gradient_end: Some(((g.x2 * t.a + g.y2 * t.c + t.e) as f32, (g.x2 * t.b + g.y2 * t.d + t.f) as f32)),
                             });
                         } else {
-                            primitives.push(RenderablePath{
+                            primitives.push(RenderablePath {
                                 bgcolor: [1.0, 1.0, 1.0, 1.0],
                                 gradient_stops: 0,
                                 gradient_colors: None,
@@ -113,7 +112,6 @@ fn load_svg(filename: &str) {
             NodeKind::Group(_) => {}
         }
     }
-
 }
 
 pub struct VertexCtor {
@@ -126,7 +124,7 @@ impl FillVertexConstructor<GpuVertex> for VertexCtor {
         let position = vertex.position().to_array();
         let vec = self.transform.clone() * Vector3::new(position[0], position[1], 0.0);
         GpuVertex {
-            position: vec.columns(0,2).as_slice().try_into().expect(""),
+            position: vec.columns(0, 2).as_slice().try_into().expect(""),
             prim_id: self.prim_id,
         }
     }

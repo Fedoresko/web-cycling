@@ -1,12 +1,18 @@
 precision mediump float;
+const int MAX_GRADIENT_STOPS = 10;
 
 varying vec4 aColor;
-
 uniform vec2 iResolution;
 uniform sampler2D iChannel0;
 //uniform vec2 direction;
 uniform bool blur;
+uniform vec4 element_pos;
+uniform int n_stops;
+uniform vec4 color_stops[MAX_GRADIENT_STOPS];
+uniform float stop_pos[MAX_GRADIENT_STOPS];
+uniform vec2 gradient_pts[2];
 varying vec2 uv;
+varying vec2 pos2d;
 
 //vec4 blur9(sampler2D image, vec2 uv, vec2 resolution, vec2 direction) {
 //  vec4 color = vec4(0.0);
@@ -50,7 +56,6 @@ vec4 mainImage()
     vec2 Radius = Size/iResolution.xy;
 
     // Normalized pixel coordinates (from 0 to 1)
-    // vec2 uv = fragCoord/iResolution.xy;
     // Pixel colour
     vec4 Color = texture2D(iChannel0, uv);
 
@@ -68,18 +73,38 @@ vec4 mainImage()
     return vec4(Color.xyz, 1.0);
 }
 
+vec4 applyGradient() {
+    if (n_stops == 0) {
+        return aColor;
+    } else {
+        vec2 a = element_pos.xy + gradient_pts[0]*element_pos.zw;
+        vec2 b = element_pos.xy + gradient_pts[1]*element_pos.zw;
+        vec2 ab = b - a;
+        float t = dot(pos2d.xy - a, ab)/sqrt(dot(ab, ab));
+        if (t <= stop_pos[0]) {
+            return color_stops[0];
+        } else {
+            for (int i = 1; i < MAX_GRADIENT_STOPS; i++) {
+                if (i == n_stops) {
+                    return color_stops[i - 1];
+                } else if (t < stop_pos[i]) {
+                    return mix(color_stops[i-1], color_stops[i], (t - stop_pos[i-1])/(stop_pos[i] - stop_pos[i-1]));
+                }
+            }
+        }
+    }
+    return color_stops[0];
+}
+
 
 void main() {
+  vec4 baseColor = applyGradient();
   if (blur) {
     vec4 col = mainImage();
-    //vec3 hsl = rgb2hsv(col.rgb);
-    //hsl.z = hsl.z/2.0;
-    //vec3 rgb = hsv2rgb(hsl);
-
-    gl_FragColor = vec4(mix(col.rgb, aColor.rgb, aColor.w), 1.0);
+    gl_FragColor = vec4(mix(col.rgb, baseColor.rgb, baseColor.w), 1.0);
   } else {
     vec4 col = texture2D(iChannel0, uv);
-    gl_FragColor = vec4(mix(col.rgb, aColor.rgb, aColor.w), 1.0);;
+    gl_FragColor = vec4(mix(col.rgb, baseColor.rgb, baseColor.w), 1.0);;
   }
 }
 

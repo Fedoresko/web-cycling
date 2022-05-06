@@ -10,6 +10,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 bincode = "=1.0.1"
+derivative = "2.2.0"
 blender-armature = ">=0.9.0"
 blender-mesh = ">=0.8.0"
 console_error_panic_hook = "=0.1.5"

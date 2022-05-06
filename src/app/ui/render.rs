@@ -1,14 +1,14 @@
-use std::fmt::{Display, Formatter};
-use web_sys::{console, WebGlRenderingContext};
+use web_sys::WebGlRenderingContext;
 use web_sys::WebGlRenderingContext as GL;
 
 use crate::app::ui::element::{Element, LineStyle, ShapeSegment};
+use crate::fields::Vec4;
 use crate::render::Render;
 use crate::shader::{Shader, ShaderKind};
 use crate::State;
 
 pub trait RenderableElement {
-    fn get_id(&self) -> u32;
+    fn get_id(&self) -> usize;
     fn get_shape(&self) -> &[ShapeSegment];
     fn get_style(&self) -> &LineStyle;
     fn is_blur(&self) -> bool;
@@ -17,7 +17,7 @@ pub trait RenderableElement {
     fn get_size(&self) -> (u32, u32);
     fn get_gradient_stops_n(&self) -> u8;
     fn get_gradient_positions(&self) -> &[f32];
-    fn get_gradient_colors(&self) -> &[[f32; 4]];
+    fn get_gradient_colors(&self) -> &[Vec4];
     fn get_gradient_start(&self) -> (f32, f32);
     fn get_gradient_end(&self) -> (f32, f32);
 
@@ -108,7 +108,7 @@ where
 
         gl.uniform1i(stops_attrib.as_ref(), self.get_gradient_stops_n() as i32);
         if self.get_gradient_stops_n() > 0 {
-            console::log_1(&format!("gradient stops {}; start{}; end{}", self.get_gradient_stops_n(), self.get_gradient_start().0, self.get_gradient_end().0).into());
+            // console::log_1(&format!("gradient stops {}; start{}; end{}", self.get_gradient_stops_n(), self.get_gradient_start().0, self.get_gradient_end().0).into());
             let x : Vec<f32> = self.get_gradient_colors().iter().flatten().map(|a| *a).collect();
             gl.uniform4fv_with_f32_array(stops_color_attrib.as_ref(), x.as_slice());
             gl.uniform1fv_with_f32_array(stops_positions_attrib.as_ref(), self.get_gradient_positions());
