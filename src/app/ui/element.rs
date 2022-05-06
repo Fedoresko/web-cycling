@@ -25,12 +25,13 @@ pub struct Element {
     style: LineStyle,
     blur: bool,
     bgcolor: Vec4,
-    pub x: i32,
-    pub y: i32,
+    pub (super) x: i32,
+    pub (super) y: i32,
     width: u32,
     height: u32,
-    children_elems: Vec<Box<Element>>,
-    pub draggable: Option<DraggableElement>,
+    pub (super) children_elems: Vec<usize>,
+    pub (super) parent_element: usize,
+    pub (super) draggable: Option<DraggableElement>,
     gradient_stops: u8,
     gradient_pos: Option<Vec<f32>>,
     gradient_colors: Option<Vec<Vec4>>,
@@ -57,12 +58,12 @@ pub struct ElemBuider {
 }
 
 impl Element  {
-    pub fn children(&self) -> &[Box<Element>] {
+    pub fn children(&self) -> &[usize] {
         self.children_elems.as_slice()
     }
 
-    pub fn add_child(&mut self, child: Element) {
-        self.children_elems.push(Box::new(child))
+    pub (super) fn set_id(&mut self, id: usize) {
+        self.id = id;
     }
 
     pub fn set(&mut self, field: FieldSelector) {
@@ -113,18 +114,18 @@ impl ShapeSegment {
 
 impl ElemBuider {
     pub fn new(x: i32, y: i32, w: u32, h: u32) -> Self {
-        static COUNTER: AtomicUsize = AtomicUsize::new(1);
         ElemBuider {
-            id: COUNTER.fetch_add(1, Ordering::Relaxed),
+            id: 0,
             shape: vec![
                 ShapeSegment::new(0.0, 0.0),
                 ShapeSegment::new(0.0, 1.0),
                 ShapeSegment::new(1.0, 1.0),
                 ShapeSegment::new(1.0, 0.0),
+                ShapeSegment::new(0.0, 0.0),
             ],
             style: LineStyle::default(),
             blur: false,
-            bgcolor: Vec4::from([0.3, 0.3, 0.3, 1.0]),
+            bgcolor: Vec4::from([0.0, 0.0, 0.0, 0.0]),
             x,
             y,
             width: w,
@@ -192,6 +193,7 @@ impl ElemBuider {
             } else {
                 None
             },
+            parent_element: 0,
             children_elems: Vec::new(),
             gradient_stops: self.gradient_stops,
             gradient_end: self.gradient_end,

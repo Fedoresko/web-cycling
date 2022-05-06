@@ -26,8 +26,9 @@ impl<T> PickingRender for T
         );
         Element::buffer_f32_data(&gl, &t, pos_attrib as u32, 3);
 
-        gl.uniform1i(color_uni.as_ref(), self.get_id() as i32);
+        let id = self.get_id();
+        gl.uniform1i(color_uni.as_ref(), id as i32);
         gl.draw_arrays(GL::TRIANGLE_FAN, 0, (self.get_shape().len() + 1) as i32);
-        self.get_id()
+        id
     }
 }

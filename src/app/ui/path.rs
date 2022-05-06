@@ -8,6 +8,7 @@ use nalgebra::Vector3;
 use nalgebra::Matrix3;
 use usvg::{LinearGradient, NodeKind, Paint, Tree};
 
+#[allow(dead_code)]
 struct RenderablePath {
     bgcolor: [f32; 4],
     gradient_stops: u8,

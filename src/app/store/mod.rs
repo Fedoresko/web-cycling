@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use self::camera::*;
 use self::mouse::*;
-use crate::app::ui::*;
+use crate::messaging::Msg;
 use crate::EventTarget;
 
 mod camera;
@@ -135,13 +135,13 @@ impl State {
                 false
             }
             Msg::KeyDown(key) => {
-                if *key == 82 {
+                if *key == 82 { //'R'
                     self.show_pick = true;
                 }
                 false
             }
             Msg::KeyUp(key) => {
-                if *key == 82 {
+                if *key == 82 { //'R'
                     self.show_pick = false;
                 }
                 false

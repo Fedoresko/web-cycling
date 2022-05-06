@@ -8,7 +8,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::*;
 use web_sys::WebGlRenderingContext as GL;
 
-use crate::app::Msg;
+use crate::messaging::Msg;
 use crate::{EventTarget, WebEventDispatcher};
 
 pub static APP_DIV_ID: &'static str = "webgl-water-tutorial";

@@ -1,7 +1,7 @@
 extern crate wasm_bindgen;
 
 use std::cell::RefCell;
-use std::ops::Deref;
+use std::f32::consts::PI;
 use std::rc::Rc;
 
 use console_error_panic_hook;
@@ -10,6 +10,9 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use web_sys::*;
 use web_sys::WebGlRenderingContext as GL;
+use crate::animation::{Animation, Animator, CompositeAnimation};
+use crate::element::{ElemBuider, LineStyle, ShapeSegment};
+use crate::fields::{FieldSelector, Vec4};
 
 use crate::load_texture_img::load_texture_image;
 use crate::render::framebuffer::Framebuffer;
@@ -18,6 +21,7 @@ pub(in crate) use self::app::*;
 use self::app::ui::UI;
 use self::canvas::*;
 use self::render::*;
+use crate::messaging::{HandleContext, Msg};
 
 mod app;
 mod canvas;
@@ -74,18 +78,24 @@ impl InnerWebClient {
 
         let event_dispatcher = Rc::new(RefCell::new(None));
         let canvas = init_canvas(&event_dispatcher).unwrap();
+        let w = canvas.width();
+        let h = canvas.height();
         let app = Rc::new(App::new(
-            canvas.width() as i32,
-            canvas.height() as i32,
+            w as i32,
+            h as i32,
             scr_width,
             scr_height,
         ));
         //let ui_ref = Rc::new(&dispatcher.ui);
         let gl = create_webgl_context(&canvas).unwrap();
         let renderer = Rc::new(WebRenderer::new(&gl));
+        let mut ui = UI::new(canvas, Rc::clone(&renderer));
+
+        Self::init_ui(&mut ui, w, h);
+
         let dispatcher = WebEventDispatcher {
             app: app.clone(),
-            ui: UI::new(canvas, Rc::clone(&renderer)),
+            ui,
         };
 
         *event_dispatcher.borrow_mut() = Some(dispatcher);
@@ -103,6 +113,96 @@ impl InnerWebClient {
             fbo,
         }
     }
+
+    fn star_shape() -> Vec<ShapeSegment> {
+        let mut shape: Vec<ShapeSegment> = vec![];
+        for k in 0..5 {
+            shape.push(ShapeSegment {
+                x: (0.5 * (2.0 * PI * k as f32 / 5.0 + PI / 2.0).cos()) + 0.5,
+                y: (0.5 * (2.0 * PI * k as f32 / 5.0 + PI / 2.0).sin()) + 0.5,
+                style: None,
+                event_id: None,
+            });
+            shape.push(ShapeSegment {
+                x: (0.25 * (2.0 * PI * (k as f32 + 0.5) / 5.0 + PI / 2.0).cos()) + 0.5,
+                y: (0.25 * (2.0 * PI * (k as f32 + 0.5) as f32 / 5.0 + PI / 2.0).sin()) + 0.5,
+                style: None,
+                event_id: None,
+            });
+        }
+        shape.push(ShapeSegment {
+            x: (0.5 * (PI / 2.0).cos()) + 0.5,
+            y: (0.5 * (PI / 2.0).sin()) + 0.5,
+            style: None,
+            event_id: None,
+        });
+        shape
+    }
+
+    fn init_ui(ui: &mut UI, w: u32, h: u32) {
+        let coords: Vec<(f32, f32)> =
+            vec![(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.0, 0.0)];
+        let shape: Vec<ShapeSegment> = coords
+            .iter()
+            .map(|(x, y)| ShapeSegment {
+                x: *x,
+                y: *y,
+                style: None,
+                event_id: None,
+            })
+            .collect();
+        let small_button = ElemBuider::new(600, 300, 200, 50)
+            .with_shape(&shape)
+            .with_background(&[0.0, 0.0, 0.0, 1.0])
+            .with_line_style(&LineStyle {
+                color: [1.0, 1.0, 1.0, 1.0],
+                width: 1.0,
+                dashed: false,
+            })
+            .with_gradient(3, vec![0.25, 0.5, 0.75],
+                           vec![Vec4::from([0.5, 0.5, 0.5, 1.0]), Vec4::from([0.9, 0.9, 0.9, 1.0]), Vec4::from([0.5, 0.5, 0.5, 1.0])], (0.0, 0.0), (1.0, 1.0)).build();
+
+        let star = ElemBuider::new(200, 300, 200, 200)
+            .with_shape(&Self::star_shape())
+            .with_line_style(&LineStyle {
+                color: [0.8, 0.2, 0.0, 0.75],
+                width: 2.0,
+                dashed: false,
+            })
+            .with_background(&[0.6, 0.4, 0.0, 0.5])
+            .draggable()
+            .build();
+
+        let big_box = ElemBuider::new(100, 100, w - 200, h - 200)
+            .with_shape(&shape)
+            .with_line_style(&LineStyle {
+                color: [1.0, 1.0, 1.0, 1.0],
+                width: 1.0,
+                dashed: false,
+            })
+            .blur_on()
+            .with_background(&[0.0, 0.0, 0.0, 0.5])
+            .with_gradient(2, vec![0.0, 1.0], vec![Vec4::from([0.0, 0.0, 0.0, 0.9]), Vec4::from([0.0, 0.0, 0.0, 0.1])], (0.3, 0.1), (0.7, 0.9))
+            .build();
+
+        let _big_box_id = ui.add_element(big_box, 0).unwrap();
+        let _star_id = ui.add_element(star, 0).unwrap();
+        let small_button_id = ui.add_element(small_button, 0).unwrap();
+
+        ui.register_handler(small_button_id, Msg::MouseDown(0, 0), RefCell::new(Box::new(move |_msg, context| {
+            let anim1 = Box::new(Animation::linear(small_button_id,
+                                                   FieldSelector::GradientPos0(-0.1), FieldSelector::GradientPos0(1.0), 1000.0));
+            let anim2 = Box::new(Animation::linear(small_button_id,
+                                                   FieldSelector::GradientPos1(-0.05), FieldSelector::GradientPos1(1.05), 1000.0));
+            let anim3 = Box::new(Animation::linear(small_button_id,
+                                                   FieldSelector::GradientPos2(0.0), FieldSelector::GradientPos2(1.1), 1000.0));
+            let animations: Vec<Box<dyn Animator>> = vec![anim1, anim2, anim3];
+            let button_flare = Box::new(CompositeAnimation { animations });
+            context.start_animation(button_flare);
+            true
+        })));
+
+    }
 }
 
 impl WC for InnerWebClient {
@@ -116,10 +216,6 @@ impl WC for InnerWebClient {
         let x = self.event_dispatcher.borrow();
         let ui = &x.as_ref().unwrap().ui;
         let gl = &self.gl;
-
-        //let w = self.app.store.borrow().state.viewport_width();
-        //let h = self.app.store.borrow().state.viewport_height();
-        //let (target_texture, fb) = InnerWebClient::create_texture_frame_buffer(w, h, gl);
 
         //Draw 3D scene
         gl.bind_framebuffer(GL::FRAMEBUFFER, self.fbo.as_ref());

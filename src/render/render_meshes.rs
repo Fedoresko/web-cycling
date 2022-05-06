@@ -1,4 +1,4 @@
-use web_sys::WebGlRenderingContext as GL;
+use web_sys::{console, WebGlRenderingContext as GL};
 
 use crate::app::ui::picking::PickingRender;
 use crate::render::Render;

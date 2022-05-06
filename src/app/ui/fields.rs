@@ -2,6 +2,8 @@ use std::fmt::{Display, Formatter};
 use std::ops::{Add, Index, Mul, Sub};
 use std::slice::Iter;
 
+/// Field Selector serves for modifying mutable properties of elements
+/// currently only first three points of gradient supported
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
 pub enum FieldSelector {

@@ -53,26 +53,22 @@ impl Animation {
 }
 
 impl Animator for Animation {
-    fn get_target(&self) -> usize {
-        self.target_id
+    fn animate(&mut self, elem: &mut Element) {
+        let time = Date::now();
+        let progress = (time - self.started) / self.duration;
+        if progress > 0.0 && progress <= 1.0 {
+            elem.set((self.act)(progress, self.from, self.to) );
+        } else if progress > 1.0 {
+            if self.repeat {
+                self.started = Date::now();
+            } else {
+                self.started = FAR_FUTURE;
+            }
+        }
     }
 
-    fn animate(&mut self, elem: &mut Element) {
-        // if elem.get_id() == self.target_id {
-            let time = Date::now();
-            let progress = (time - self.started) / self.duration;
-            if progress > 0.0 && progress <= 1.0 {
-                elem.set((self.act)(progress, self.from, self.to) );
-            } else if progress > 1.0 {
-                if self.repeat {
-                    self.started = Date::now();
-                } else {
-                    self.started = FAR_FUTURE;
-                }
-            }
-        // } else {
-        //     console::log_1(&format!("Wrong coincedence {} and {}",self.target_id, elem.get_id()).into());
-        // }
+    fn get_target(&self) -> usize {
+        self.target_id
     }
 
     fn is_finished(&self) -> bool {
