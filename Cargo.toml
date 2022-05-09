@@ -23,6 +23,7 @@ serde = { version = "1.0.104", features = ["derive"] }
 lyon = { version=">=0.17.0", features = ["serialization"] }
 usvg = ">=0.15.0"
 svg-load = { path = "../svg-load" }
+brotli = ">=3.3.0"
 
 [build-dependencies]
 bincode = "=1.0.1"
@@ -30,6 +31,7 @@ blender-armature = ">=0.9.0"
 blender-mesh = ">=0.8.0"
 landon = "=0.10.2"
 svg-load = { path = "../svg-load" }
+brotli = ">=3.3.0"
 
 [dependencies.wasm-bindgen]
 version = "0.2.80"
@@ -60,6 +62,7 @@ features = [
   'WebGlProgram',
   'WebGlRenderbuffer',
   'WebGlRenderingContext',
+  'WebGl2RenderingContext',
   'WebGlShader',
   'WebGlTexture',
   'WebGlUniformLocation',

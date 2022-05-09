@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
@@ -6,6 +7,9 @@ use bincode;
 use blender_mesh;
 use landon;
 use svg_load::svgload::load_svg;
+use svg_load::ttfload::load_font;
+
+const GLYPHS_REQUIRED: &'static str = "ABCDEFGHIJKLMNOPQRSTUVWXYSabcdefghijklmnopqrstuvwxyz0123456789,./'\\:;[]{}()!@#$%^&*~?-=_+ АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя<>";
 
 fn main() {
     let blender_files = vec![
@@ -53,8 +57,24 @@ fn main() {
     let mut f = File::create("./armatures.bytes").unwrap();
     f.write_all(&flattened_armatures[..]).unwrap();
 
-    let _svg = load_svg(r"./test.svg");
-    let svg = bincode::serialize(&_svg).unwrap();
+    let mut images = HashMap::new();
+    images.insert("test.svg", load_svg(r"./amc.svg"));
+    images.insert("HR", load_svg(r"./heart1.svg"));
+    let svg = bincode::serialize(&images).unwrap();
     let mut f = File::create("./svgs.bytes").unwrap();
     f.write_all(&svg[..]).unwrap();
+
+    println!("Loading fonts...");
+
+    let mut fonts = HashMap::new();
+    fonts.insert("Roboto-Light", load_font(r"./Roboto-Light.ttf", GLYPHS_REQUIRED).unwrap());
+    fonts.insert("SourceSansPro-Black", load_font(r"./SourceSansPro-Black.ttf", GLYPHS_REQUIRED).unwrap());
+
+    let font = bincode::serialize(&fonts).unwrap();
+    // let font_complessed = zstd::encode_all(&font[..],5).unwrap();
+    let mut f = File::create("./fonts.bytes").unwrap();
+    let mut b = brotli::CompressorWriter::new(f, 4096, 4, 20);
+    b.write_all(&font[..]);
+    b.flush();
+    //f.write_all().unwrap();
 }

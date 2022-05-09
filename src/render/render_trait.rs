@@ -1,6 +1,6 @@
 use crate::shader::Shader;
 use crate::shader::ShaderKind;
-use crate::State;
+use crate::{State, WebRenderer};
 use js_sys::WebAssembly;
 use wasm_bindgen::JsCast;
 use web_sys::WebGlRenderingContext as GL;
@@ -12,7 +12,7 @@ pub trait Render {
 
     fn buffer_attributes(&self, gl: &GL, shader: &Shader);
 
-    fn render(&self, gl: &GL, state: &State, shader: &Shader);
+    fn render(&self, gl: &GL, state: &State, shader: &Shader, renderer: &WebRenderer);
 
     fn buffer_f32_data(gl: &GL, data: &[f32], attrib: u32, size: i32) {
         let memory_buffer = wasm_bindgen::memory()

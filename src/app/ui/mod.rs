@@ -12,7 +12,7 @@ use web_sys::WebGlRenderingContext as GL;
 
 use crate::animation::Animator;
 use crate::app::ui::drag::Draggable;
-use crate::{EventTarget, FieldSelector};
+use crate::{Assets, EventTarget, FieldSelector};
 use crate::messaging::HandleContext;
 use crate::messaging::HandlerCallback;
 use crate::messaging::HandlersBean;
@@ -21,6 +21,7 @@ use crate::render::framebuffer::Framebuffer;
 use crate::render::textured_quad::TexturedQuad;
 use crate::render::WebRenderer;
 use crate::State;
+use crate::text::RenderableString;
 use crate::ui::element::Element;
 
 pub mod animation;
@@ -31,6 +32,7 @@ pub mod render;
 pub mod path;
 pub mod fields;
 pub mod messaging;
+pub mod text;
 
 pub struct UI {
     canvas: HtmlCanvasElement,
@@ -46,13 +48,13 @@ pub struct UI {
 
     handling: Rc<RefCell<HandlersBean>>,
 
-    svg: Option<Vec<RenderablePath>>,
+    _svg: Option<Vec<RenderablePath>>,
 }
 
 impl UI {
     pub fn new(canvas: HtmlCanvasElement, renderer: Rc<WebRenderer>) -> UI {
         let result = JsValue::from_serde(&serde_json::json!({
-            "antialias": false,
+            "antialias": true,
         }));
         let gl: WebGlRenderingContext = canvas
             .get_context_with_context_options("webgl", &result.unwrap())
@@ -82,7 +84,7 @@ impl UI {
             start_drag_x: 0,
             start_drag_y: 0,
             handling: Rc::new(RefCell::new(handling)),
-            svg: None,
+            _svg: None,
         }
     }
 
@@ -104,6 +106,7 @@ impl UI {
         &self,
         gl: &WebGlRenderingContext,
         state: &State,
+        assets: &Assets,
         renderer: &WebRenderer,
     ) {
         gl.viewport(0, 0, state.viewport_width(), state.viewport_height());
@@ -126,6 +129,19 @@ impl UI {
         }
 
         {
+            let font = assets.get_font("Roboto-Light").unwrap();
+            let rs = RenderableString {
+                string: String::from("Съешь ещё этих мягких французских булок, да выпей чаю."),
+                //string: String::from("The quick brown fox jumps over a lazy dog."),//The quick brown fox jumps over a lazy dog.
+                font_size: 16.0,
+                color: [0.0,0.0,0.0,1.0],
+                position: (200, 600),
+                font: font
+            };
+            renderer.render_mesh(gl, state, "text",&rs);
+        }
+
+        {
             for animation in self.handle().animations.borrow_mut().deref_mut() {
                 animation.animate(self.handle().elements.get(animation.get_target()).unwrap().borrow_mut().deref_mut());
             }
@@ -134,24 +150,33 @@ impl UI {
             });
         }
 
-            if state.show_pick() {
-                for element in self.handle().elements.iter().rev() {
-                    renderer.render_picking(gl, element.borrow().deref());
-                }
-            } else {
-                for element in self.handle().elements.iter().rev() {
-                    renderer.render_mesh(gl, state, &format!("ui{}", element.borrow().get_id()), element.borrow().deref());
-                }
+
+        for (k, mesh) in assets.get_image("HR").expect("SVG").iter().rev().enumerate() {
+            renderer.render_mesh(gl, state, &format!("test1{}",k), mesh);
+        }
+        for (k, mesh) in assets.get_image("test.svg").expect("SVG").iter().rev().enumerate() {
+            renderer.render_mesh(gl, state, &format!("test2{}",k), mesh);
+        }
+
+
+        if state.show_pick() {
+            for element in self.handle().elements.iter().rev() {
+                renderer.render_picking(gl, element.borrow().deref());
             }
+        } else {
+            for element in self.handle().elements.iter().rev() {
+                renderer.render_mesh(gl, state, &format!("ui{}", element.borrow().get_id()), element.borrow().deref());
+            }
+        }
+
     }
 
     fn render_and_pick(&mut self, x: i32, y: i32) -> Option<usize> {
         let gl = &self.gl;
 
+        gl.bind_framebuffer(GL::FRAMEBUFFER, self.pick_fbo.as_ref());
         gl.clear_color(0.0, 0.0, 0.0, 0.0);
         gl.enable(GL::DEPTH_TEST);
-
-        gl.bind_framebuffer(GL::FRAMEBUFFER, self.pick_fbo.as_ref());
         gl.viewport(
             0,
             0,

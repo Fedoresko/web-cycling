@@ -159,8 +159,8 @@ impl InnerWebClient {
                 width: 1.0,
                 dashed: false,
             })
-            .with_gradient(3, vec![0.25, 0.5, 0.75],
-                           vec![Vec4::from([0.5, 0.5, 0.5, 1.0]), Vec4::from([0.9, 0.9, 0.9, 1.0]), Vec4::from([0.5, 0.5, 0.5, 1.0])], (0.0, 0.0), (1.0, 1.0)).build();
+            .with_gradient(3, vec![0.0, 0.0, 0.0],
+                           vec![Vec4::from([0.5, 0.5, 0.5, 1.0]), Vec4::from([0.9, 0.9, 0.9, 1.0]), Vec4::from([0.5, 0.5, 0.5, 1.0])], (0.0, 0.4), (1.0, 0.6)).build();
 
         let star = ElemBuilder::new(200, 300, 200, 200)
             .with_shape(&Self::star_shape())
@@ -191,11 +191,11 @@ impl InnerWebClient {
 
         ui.register_handler(small_button_id, Msg::MouseDown(0, 0), RefCell::new(Box::new(move |_msg, context| {
             let anim1 = Box::new(Animation::linear(small_button_id,
-                                                   FieldSelector::GradientPos0(-0.1), FieldSelector::GradientPos0(1.0), 1000.0));
+                                                   FieldSelector::GradientPos0(-0.6), FieldSelector::GradientPos0(1.0), 400.0));
             let anim2 = Box::new(Animation::linear(small_button_id,
-                                                   FieldSelector::GradientPos1(-0.05), FieldSelector::GradientPos1(1.05), 1000.0));
+                                                   FieldSelector::GradientPos1(-0.3), FieldSelector::GradientPos1(1.3), 400.0));
             let anim3 = Box::new(Animation::linear(small_button_id,
-                                                   FieldSelector::GradientPos2(0.0), FieldSelector::GradientPos2(1.1), 1000.0));
+                                                   FieldSelector::GradientPos2(0.0), FieldSelector::GradientPos2(1.6), 400.0));
             let animations: Vec<Box<dyn Animator>> = vec![anim1, anim2, anim3];
             let button_flare = Box::new(CompositeAnimation { animations });
             context.start_animation(button_flare);
@@ -228,7 +228,7 @@ impl WC for InnerWebClient {
         gl.active_texture(GL::TEXTURE0);
         gl.bind_texture(GL::TEXTURE_2D, self.screen_texture.as_ref());
 
-        ui.render_elements(gl, &self.app.store.borrow().state, &self.renderer);
+        ui.render_elements(gl, &self.app.store.borrow().state, &self.app.assets(), &self.renderer);
     }
 
     fn load_textures(&self) {

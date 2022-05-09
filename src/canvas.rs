@@ -25,7 +25,7 @@ pub fn send_msg(dispatcher: EventDispatcher, msg: &Msg) {
 
 pub fn create_webgl_context(canvas: &HtmlCanvasElement) -> Result<WebGlRenderingContext, JsValue> {
     let result = JsValue::from_serde(&serde_json::json!({
-        "antialias": false,
+        "antialias": true,
     }));
     let gl: WebGlRenderingContext = canvas
         .get_context_with_context_options("webgl", &result.unwrap())?

@@ -5,7 +5,7 @@ use crate::app::ui::element::{Element, LineStyle, ShapeSegment};
 use crate::fields::Vec4;
 use crate::render::Render;
 use crate::shader::{Shader, ShaderKind};
-use crate::State;
+use crate::{State, WebRenderer};
 
 pub trait RenderableElement {
     fn get_id(&self) -> usize;
@@ -65,7 +65,7 @@ where
         Element::buffer_f32_data(&gl, &t, pos_attrib as u32, 3);
     }
 
-    fn render(&self, gl: &WebGlRenderingContext, state: &State, shader: &Shader) {
+    fn render(&self, gl: &WebGlRenderingContext, state: &State, shader: &Shader, _: &WebRenderer) {
         self.buffer_attributes(gl, shader);
         let color_uni = shader.get_uniform_location(gl, "color");
         let blur_uni = shader.get_uniform_location(gl, "blur");

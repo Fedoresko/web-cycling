@@ -9,6 +9,7 @@ use crate::render::Render;
 use crate::render::TextureUnit;
 use crate::shader::Shader;
 use crate::shader::ShaderKind;
+use crate::WebRenderer;
 
 pub struct NonSkinnedMesh<'a> {
     pub mesh: &'a SingleIndexedVertexAttributes,
@@ -73,7 +74,7 @@ impl Render for NonSkinnedMesh<'_> {
         NonSkinnedMesh::buffer_u16_indices(&gl, mesh.indices());
     }
 
-    fn render(&self, gl: &WebGlRenderingContext, state: &State, shader: &Shader) {
+    fn render(&self, gl: &WebGlRenderingContext, state: &State, shader: &Shader, _:&WebRenderer) {
         let mesh = self.mesh;
         let opts = self.opts;
         let pos = opts.pos;

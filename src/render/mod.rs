@@ -7,6 +7,7 @@ use web_sys::WebGlRenderingContext as GL;
 
 use crate::app::Assets;
 use crate::app::State;
+use crate::Framebuffer;
 use crate::shader::ShaderSystem;
 
 pub(self) use self::mesh::*;
@@ -25,13 +26,14 @@ struct VaoExtension {
     vaos: RefCell<HashMap<String, Vao>>,
 }
 
-struct Vao(js_sys::Object);
+pub struct Vao(js_sys::Object);
 
 pub struct WebRenderer {
     shader_sys: ShaderSystem,
     #[allow(unused)]
     depth_texture_ext: Option<js_sys::Object>,
     vao_ext: VaoExtension,
+    msaa_fbo : Option<WebGlFramebuffer>,
 }
 
 impl WebRenderer {
@@ -52,10 +54,13 @@ impl WebRenderer {
             vaos: RefCell::new(HashMap::new()),
         };
 
+        let (_tex, fbo) = Framebuffer::create_texture_frame_buffer(8000 as i32, 8000 as i32, gl);
+
         WebRenderer {
             depth_texture_ext,
             shader_sys,
             vao_ext,
+            msaa_fbo: fbo,
         }
     }
 
@@ -76,13 +81,13 @@ impl WebRenderer {
             flip_camera_y: false,
         };
 
-        let mesh_name = "Sphere";
-        let sphere = NonSkinnedMesh {
-            mesh: assets.get_mesh(mesh_name).expect("Sphere mesh"),
-            opts: &mesh_opts,
-            texture: &TextureUnit::Stone,
-        };
-        self.render_mesh(gl, state, mesh_name, &sphere);
+        // let mesh_name = "Sphere";
+        // let sphere = NonSkinnedMesh {
+        //     mesh: assets.get_mesh(mesh_name).expect("Sphere mesh"),
+        //     opts: &mesh_opts,
+        //     texture: &TextureUnit::Stone,
+        // };
+        // self.render_mesh(gl, state, mesh_name, &sphere);
 
         let mesh_name = "Velodrome";
         let velodrome = NonSkinnedMesh {

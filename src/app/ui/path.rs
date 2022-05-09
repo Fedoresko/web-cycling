@@ -1,6 +1,6 @@
-use crate::{Render, State};
+use crate::{Render, State, WebRenderer};
 use crate::shader::{Shader, ShaderKind};
-use web_sys::WebGlRenderingContext as GL;
+use web_sys::{console, WebGlRenderingContext as GL};
 use svg_load::path::RenderablePath;
 
 impl Render for RenderablePath {
@@ -8,17 +8,13 @@ impl Render for RenderablePath {
 
     fn buffer_attributes(&self, gl: &GL, shader: &Shader) {
         let mesh = &self.vertices;
-
         let pos_attrib = gl.get_attrib_location(&shader.program, "position");
-        let uv_attrib = gl.get_attrib_location(&shader.program, "uvs");
-
         gl.enable_vertex_attrib_array(pos_attrib as u32);
-        gl.enable_vertex_attrib_array(uv_attrib as u32);
 
         RenderablePath::buffer_f32_data(
             &gl,
             &mesh.vertices.iter()
-                .flat_map(|v| v.position )
+                .flat_map(|v| [v.position[0], v.position[1], 0.0] )
                 .collect::<Vec<f32>>(),
             pos_attrib as u32,
             3,
@@ -27,7 +23,29 @@ impl Render for RenderablePath {
         RenderablePath::buffer_u16_indices(&gl, &mesh.indices.iter().map(|i| *i as u16).collect::<Vec<u16>>() );
     }
 
-    fn render(&self, gl: &GL, state: &State, shader: &Shader) {
+    fn render(&self, gl: &GL, state: &State, shader: &Shader, _: &WebRenderer) {
+        let pos_uni = shader.get_uniform_location(gl, "element_pos");
+        let pos_attrib = gl.get_attrib_location(&shader.program, "position");
+        gl.enable_vertex_attrib_array(pos_attrib as u32);
+
+        let pos = (0,0);
+        let sz = self.size;
+
+        let w = gl.drawing_buffer_width() as f32;
+        let h = gl.drawing_buffer_height() as f32;
+        let sh_x = -w + 1.0;
+        let sh_y = -h + 1.0;
+
+        gl.uniform4fv_with_f32_array(
+            pos_uni.as_ref(),
+            &[
+                ((pos.0 * 2) as f32 + sh_x) / w,
+                ((pos.1 * 2) as f32 + sh_y) / h,
+                (sz.0 * 2) as f32 / w,
+                (sz.1 * 2) as f32 / h,
+            ],
+        );
+
         let color_uni = shader.get_uniform_location(gl, "color");
         let blur_uni = shader.get_uniform_location(gl, "blur");
         let texrate_uni = shader.get_uniform_location(gl, "tex_rate");
@@ -53,7 +71,6 @@ impl Render for RenderablePath {
 
         gl.uniform1i(stops_attrib.as_ref(), self.gradient_stops as i32);
         if self.gradient_stops > 0 {
-            // console::log_1(&format!("gradient stops {}; start{}; end{}", self.get_gradient_stops_n(), self.get_gradient_start().0, self.get_gradient_end().0).into());
             let x : Vec<f32> = self.gradient_colors.as_ref().unwrap().iter().flatten().map(|a| *a).collect();
             gl.uniform4fv_with_f32_array(stops_color_attrib.as_ref(), x.as_slice());
             gl.uniform1fv_with_f32_array(stops_positions_attrib.as_ref(), self.gradient_pos.as_ref().unwrap() );

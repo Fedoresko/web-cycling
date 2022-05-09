@@ -77,10 +77,10 @@ vec4 applyGradient() {
     if (n_stops == 0) {
         return aColor;
     } else {
-        vec2 a = element_pos.xy + gradient_pts[0]*element_pos.zw;
-        vec2 b = element_pos.xy + gradient_pts[1]*element_pos.zw;
+        vec2 a = gradient_pts[0];//element_pos.xy + gradient_pts[0]*element_pos.zw;
+        vec2 b = gradient_pts[1];//element_pos.xy + gradient_pts[1]*element_pos.zw;
         vec2 ab = b - a;
-        float t = dot(pos2d.xy - a, ab)/sqrt(dot(ab, ab));
+        float t = dot(pos2d.xy - a, ab)/dot(ab, ab);
         if (t <= stop_pos[0]) {
             return color_stops[0];
         } else {
