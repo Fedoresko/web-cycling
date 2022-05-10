@@ -202,6 +202,14 @@ impl InnerWebClient {
             true
         })));
 
+        ui.add_bind(0, _big_box_id, Box::new(|fs : &FieldSelector| {
+            if let FieldSelector::Height(h) = *fs {
+                return Some(FieldSelector::Height(h - 200));
+            } else if let FieldSelector::Width(w) = *fs {
+                return Some(FieldSelector::Width(w - 200));
+            }
+           None
+        }));
     }
 }
 

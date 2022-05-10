@@ -64,7 +64,7 @@ impl Element  {
         self.id = id;
     }
 
-    pub fn set(&mut self, field: FieldSelector) {
+    pub (super) fn set(&mut self, field: FieldSelector) {
         match field {
             FieldSelector::X(value) => { self.x = value; }
             FieldSelector::Y(value) => { self.y = value; }

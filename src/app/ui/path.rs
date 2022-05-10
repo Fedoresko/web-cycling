@@ -1,6 +1,6 @@
 use crate::{Render, State, WebRenderer};
 use crate::shader::{Shader, ShaderKind};
-use web_sys::{console, WebGlRenderingContext as GL};
+use web_sys::{WebGlRenderingContext as GL};
 use svg_load::path::RenderablePath;
 
 impl Render for RenderablePath {

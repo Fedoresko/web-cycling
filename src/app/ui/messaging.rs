@@ -5,6 +5,7 @@ use web_sys::console;
 use crate::animation::Animator;
 use crate::element::{ElemBuilder, Element};
 use derivative::Derivative;
+use crate::FieldSelector;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Derivative)]
@@ -71,20 +72,24 @@ struct EvtKey {
 }
 
 pub type HandlerCallback = RefCell<Box<dyn Fn(&Msg, &dyn HandleContext) -> bool + 'static>>;
+pub type MappingFunction = Box<dyn Fn(&FieldSelector) -> Option<FieldSelector>>;
 
 /// This is an interface to process
 
 pub trait HandleContext {
+    fn add_bind(&mut self, source_id: usize, target_id: usize, map_fn: MappingFunction);
     fn start_animation(&self, a: Box<dyn Animator>);
     fn register_handler(&mut self, target_id: usize, message_type: Msg, callback: HandlerCallback);
     fn remove_handler(&mut self, target_id: usize, message_type: Msg);
     fn add_element(&mut self, elem: Element, parent_id: usize) -> Option<usize>;
     fn remove_element(&mut self, target_id: usize);
+    fn set(&self, target_id :usize, value: &FieldSelector);
 }
 
 pub(super) struct HandlersBean {
     pub(super) elements: Vec<RefCell<Element>>,
     pub(super) animations: RefCell<Vec<Box<dyn Animator>>>,
+    dep_links: HashMap<usize, (usize, MappingFunction)>,
     elem_handlers: HashMap<EvtKey, HandlerCallback>,
 }
 
@@ -94,6 +99,7 @@ impl Default for HandlersBean {
             animations: RefCell::new(Vec::new()),
             elem_handlers: HashMap::new(),
             elements: Vec::new(),
+            dep_links: HashMap::new(),
         }
     }
 }
@@ -104,6 +110,7 @@ impl HandlersBean {
             animations: RefCell::new(Vec::new()),
             elem_handlers: HashMap::new(),
             elements: vec![RefCell::new(ElemBuilder::new(0, 0, w, h).build())],
+            dep_links: HashMap::new(),
         }
     }
 
@@ -122,6 +129,10 @@ impl HandlersBean {
 }
 
 impl HandleContext for HandlersBean {
+    fn add_bind(&mut self, source_id: usize, target_id: usize, map_fn: MappingFunction) {
+        self.dep_links.insert(source_id, (target_id, map_fn));
+    }
+
     fn start_animation(&self, animation: Box<dyn Animator>) {
         console::log_1(&format!("Starting animation").into());
         self.animations.borrow_mut().push(animation);
@@ -152,6 +163,12 @@ impl HandleContext for HandlersBean {
         to_remove.extend(self.collect_children(target_id));
 
         {
+            let rem_ref = &to_remove;
+            self.animations.borrow_mut().retain(|a| !rem_ref.contains(&a.get_target()));
+            self.dep_links.retain(|from, (to, _fun)| !rem_ref.contains(from) && !rem_ref.contains(to));
+        }
+
+        {
             let parent = self.elements.remove(target_id).borrow().parent_element;
             self.elements.get(parent).unwrap().borrow_mut().children_elems.retain(|e| *e != target_id);
         }
@@ -173,6 +190,24 @@ impl HandleContext for HandlersBean {
         for element in &self.elements {
             let t = element.borrow().children().iter().map(|e| *move_ref.get(e).unwrap_or(e) ).collect();
             element.borrow_mut().children_elems = t;
+        }
+    }
+
+    fn set(&self, target_id: usize, value: &FieldSelector) {
+        self.elements[target_id].borrow_mut().set(*value);
+        let mut notif_stack = Vec::new();
+        notif_stack.push((target_id, value.clone()));
+
+        while !notif_stack.is_empty() {
+            let (next, val) = notif_stack.pop().unwrap();
+            self.elements[next].borrow_mut().set(val);
+            for (id, func) in self.dep_links.get(&next) {
+                let res = func(&val);
+                if res.is_some() {
+                    let val = res.unwrap().clone();
+                    notif_stack.push((*id, val))
+                }
+            }
         }
     }
 }

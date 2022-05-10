@@ -1,6 +1,5 @@
 use js_sys::Date;
 use crate::fields::FieldSelector;
-use crate::element::Element;
 
 #[allow(dead_code)]
 pub struct Animation {
@@ -18,7 +17,7 @@ pub struct CompositeAnimation {
 }
 
 pub trait Animator {
-    fn animate(&mut self, elem: &mut Element);
+    fn animate(&mut self) -> Vec<FieldSelector>;
     fn get_target(&self) -> usize;
     fn is_finished(&self) -> bool;
 }
@@ -53,11 +52,11 @@ impl Animation {
 }
 
 impl Animator for Animation {
-    fn animate(&mut self, elem: &mut Element) {
+    fn animate(&mut self) -> Vec<FieldSelector> {
         let time = Date::now();
         let progress = (time - self.started) / self.duration;
         if progress > 0.0 && progress <= 1.0 {
-            elem.set((self.act)(progress, self.from, self.to) );
+            return vec![(self.act)(progress, self.from, self.to)];
         } else if progress > 1.0 {
             if self.repeat {
                 self.started = Date::now();
@@ -65,6 +64,7 @@ impl Animator for Animation {
                 self.started = FAR_FUTURE;
             }
         }
+        Vec::new()
     }
 
     fn get_target(&self) -> usize {
@@ -77,10 +77,12 @@ impl Animator for Animation {
 }
 
 impl Animator for CompositeAnimation {
-    fn animate(&mut self, elem: &mut Element) {
+    fn animate(&mut self) -> Vec<FieldSelector> {
+        let mut res = Vec::new();
         for anim in &mut self.animations {
-            anim.animate(elem);
+            res.extend(anim.animate());
         }
+        res
     }
 
     fn get_target(&self) -> usize {

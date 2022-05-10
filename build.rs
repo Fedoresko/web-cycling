@@ -72,9 +72,9 @@ fn main() {
 
     let font = bincode::serialize(&fonts).unwrap();
     // let font_complessed = zstd::encode_all(&font[..],5).unwrap();
-    let mut f = File::create("./fonts.bytes").unwrap();
+    let f = File::create("./fonts.bytes").unwrap();
     let mut b = brotli::CompressorWriter::new(f, 4096, 4, 20);
-    b.write_all(&font[..]);
-    b.flush();
+    b.write_all(&font[..]).expect("Ok");
+    b.flush().expect("Flush");
     //f.write_all().unwrap();
 }

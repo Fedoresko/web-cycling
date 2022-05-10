@@ -1,4 +1,4 @@
-use std::borrow::{Borrow, BorrowMut};
+use std::borrow::BorrowMut;
 use bincode;
 //use blender_armature::BlenderArmature;
 use blender_mesh::{BlenderMesh, CreateSingleIndexConfig, SingleIndexedVertexAttributes};
@@ -64,7 +64,7 @@ impl Assets {
         let fonts_compressed = include_bytes!("../../../fonts.bytes");
         let mut de = brotli::Decompressor::new(&fonts_compressed[..], 4096);
         let mut fonts = Vec::new();
-        de.borrow_mut().read_to_end(&mut fonts);
+        de.borrow_mut().read_to_end(&mut fonts).expect("Decompressed fonts");
         let fontsm : HashMap<String, Font> = bincode::deserialize(&fonts.as_slice()).unwrap();
         fontsm
     }

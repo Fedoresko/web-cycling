@@ -142,8 +142,10 @@ impl UI {
         }
 
         {
-            for animation in self.handle().animations.borrow_mut().deref_mut() {
-                animation.animate(self.handle().elements.get(animation.get_target()).unwrap().borrow_mut().deref_mut());
+            for animation in self.handling.as_ref().borrow().animations.borrow_mut().deref_mut() {
+                for res in animation.animate() {
+                    self.handling.as_ref().borrow().set(animation.get_target(), &res);
+                }
             }
             self.handle().animations.borrow_mut().retain(|animation| {
                 !animation.is_finished()
@@ -243,6 +245,10 @@ impl UI {
 }
 
 impl HandleContext for UI {
+    fn add_bind(&mut self, source_id: usize, target_id: usize, map_fn: Box<dyn Fn(&FieldSelector) -> Option<FieldSelector>>) {
+        self.handle_mut().add_bind(source_id, target_id, map_fn);
+    }
+
     fn start_animation(&self, a: Box<dyn Animator>) {
         self.handle().start_animation(a)
     }
@@ -259,7 +265,7 @@ impl HandleContext for UI {
         let option = self.handle_mut().add_element(elem, parent_id);
         let res = option.unwrap();
         console::log_1(&format!("Added element {} with parent {}", res, parent_id).into());
-        for el in &self.handling.borrow().elements {
+        for el in &self.handling.as_ref().borrow().elements {
             let e = el.borrow();
             console::log_1(&format!("Element {} with parent {}", e.get_id(), e.parent_element).into());
         };
@@ -268,6 +274,10 @@ impl HandleContext for UI {
 
     fn remove_element(&mut self, target_id: usize) {
         self.handle_mut().remove_element(target_id)
+    }
+
+    fn set(&self, target_id: usize, value: &FieldSelector) {
+        self.handle().set(target_id, value);
     }
 }
 
@@ -327,8 +337,8 @@ impl EventTarget for UI {
             Msg::ResizeViewport(w, h) => {
                 self.canvas.set_width(*w as u32);
                 self.canvas.set_height(*h as u32);
-                self.handling.borrow_mut().elements.get(0).unwrap().borrow_mut().set(FieldSelector::Width(*w as u32));
-                self.handling.borrow_mut().elements.get(0).unwrap().borrow_mut().set(FieldSelector::Height(*h as u32));
+                self.handling.clone().as_ref().borrow().set(0, &FieldSelector::Width(*w as u32));
+                self.handling.clone().as_ref().borrow().set(0, &FieldSelector::Height(*h as u32));
                 self.gl.delete_framebuffer( self.pick_fbo.as_ref() );
                 let (_screen_texture, fbo) = Framebuffer::create_texture_frame_buffer(*w as i32, *h as i32, &self.gl);
                 self.pick_fbo = fbo;

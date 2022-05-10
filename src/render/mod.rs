@@ -7,7 +7,6 @@ use web_sys::WebGlRenderingContext as GL;
 
 use crate::app::Assets;
 use crate::app::State;
-use crate::Framebuffer;
 use crate::shader::ShaderSystem;
 
 pub(self) use self::mesh::*;
@@ -33,7 +32,6 @@ pub struct WebRenderer {
     #[allow(unused)]
     depth_texture_ext: Option<js_sys::Object>,
     vao_ext: VaoExtension,
-    msaa_fbo : Option<WebGlFramebuffer>,
 }
 
 impl WebRenderer {
@@ -54,13 +52,10 @@ impl WebRenderer {
             vaos: RefCell::new(HashMap::new()),
         };
 
-        let (_tex, fbo) = Framebuffer::create_texture_frame_buffer(8000 as i32, 8000 as i32, gl);
-
         WebRenderer {
             depth_texture_ext,
             shader_sys,
             vao_ext,
-            msaa_fbo: fbo,
         }
     }
 
