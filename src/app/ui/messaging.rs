@@ -1,3 +1,4 @@
+use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -72,13 +73,14 @@ struct EvtKey {
 }
 
 pub type HandlerCallback = RefCell<Box<dyn Fn(&Msg, &dyn HandleContext) -> bool + 'static>>;
+pub type HandlerCallbackMut = RefCell<Box<dyn Fn(&Msg, &mut dyn HandleContext) -> bool + 'static>>;
 pub type MappingFunction = Box<dyn Fn(&FieldSelector) -> Option<FieldSelector>>;
 
 /// This is an interface to process
 
 pub trait HandleContext {
     fn add_bind(&mut self, source_id: usize, target_id: usize, map_fn: MappingFunction);
-    fn start_animation(&self, a: Box<dyn Animator>);
+    fn start_animation(&self, a: Box<dyn Animator>, on_finish: Option<HandlerCallback>);
     fn register_handler(&mut self, target_id: usize, message_type: Msg, callback: HandlerCallback);
     fn remove_handler(&mut self, target_id: usize, message_type: Msg);
     fn add_element(&mut self, elem: Element, parent_id: usize) -> Option<usize>;
@@ -86,9 +88,14 @@ pub trait HandleContext {
     fn set(&self, target_id :usize, value: &FieldSelector);
 }
 
+pub(super) struct StoredAnimation {
+    pub(super) animator: Box<dyn Animator>,
+    pub(super) on_finish: Option<HandlerCallback>,
+}
+
 pub(super) struct HandlersBean {
     pub(super) elements: Vec<RefCell<Element>>,
-    pub(super) animations: RefCell<Vec<Box<dyn Animator>>>,
+    pub(super) animations: RefCell<Vec<StoredAnimation>>,
     dep_links: HashMap<usize, (usize, MappingFunction)>,
     elem_handlers: HashMap<EvtKey, HandlerCallback>,
 }
@@ -114,6 +121,22 @@ impl HandlersBean {
         }
     }
 
+    pub fn remove_finished_animations(&mut self) {
+        {
+            let anims = self.animations.borrow();
+            let handlers: Vec<&HandlerCallback> = anims.iter().filter(|anim| anim.animator.is_finished()).map(|anim| anim.on_finish.as_ref())
+                .filter(|f| f.is_some()).map(|f| f.unwrap()).collect();
+
+            for fun in handlers {
+                fun.borrow_mut()(&Msg::AdvanceClock(0.0), self);
+            }
+        }
+
+        self.animations.borrow_mut().retain(|animation| {
+            !animation.animator.is_finished()
+        });
+    }
+
     pub(super) fn get_handler(&self, target_id : usize, message_type: Msg) -> Option<&HandlerCallback> {
         self.elem_handlers.get(&EvtKey { target_id, message_type })
     }
@@ -133,9 +156,12 @@ impl HandleContext for HandlersBean {
         self.dep_links.insert(source_id, (target_id, map_fn));
     }
 
-    fn start_animation(&self, animation: Box<dyn Animator>) {
+    fn start_animation(&self, a: Box<dyn Animator>, on_finish: Option<HandlerCallback>) {
         console::log_1(&format!("Starting animation").into());
-        self.animations.borrow_mut().push(animation);
+        self.animations.borrow_mut().push(StoredAnimation{
+            animator: a,
+            on_finish
+        });
     }
 
     fn register_handler(&mut self, target_id: usize, message_type: Msg, callback: HandlerCallback) {
@@ -164,7 +190,7 @@ impl HandleContext for HandlersBean {
 
         {
             let rem_ref = &to_remove;
-            self.animations.borrow_mut().retain(|a| !rem_ref.contains(&a.get_target()));
+            self.animations.borrow_mut().retain(|a| !rem_ref.contains(&a.animator.get_target()));
             self.dep_links.retain(|from, (to, _fun)| !rem_ref.contains(from) && !rem_ref.contains(to));
         }
 

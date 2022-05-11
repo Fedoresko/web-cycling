@@ -13,7 +13,7 @@ use web_sys::WebGlRenderingContext as GL;
 use crate::animation::Animator;
 use crate::app::ui::drag::Draggable;
 use crate::{Assets, EventTarget, FieldSelector};
-use crate::messaging::HandleContext;
+use crate::messaging::{HandleContext, HandlerCallbackMut};
 use crate::messaging::HandlerCallback;
 use crate::messaging::HandlersBean;
 use crate::messaging::Msg;
@@ -113,6 +113,8 @@ impl UI {
         gl.clear_color(0.0, 0.0, 0.0, 1.);
         gl.clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT);
 
+        gl.enable(GL::BLEND);
+
         if !state.show_pick() {
             let background = TexturedQuad::new(
                 0,
@@ -143,22 +145,18 @@ impl UI {
 
         {
             for animation in self.handling.as_ref().borrow().animations.borrow_mut().deref_mut() {
-                for res in animation.animate() {
-                    self.handling.as_ref().borrow().set(animation.get_target(), &res);
+                for res in animation.animator.animate() {
+                    self.handling.as_ref().borrow().set(animation.animator.get_target(), &res);
                 }
             }
-            self.handle().animations.borrow_mut().retain(|animation| {
-                !animation.is_finished()
-            });
+
+            self.handle_mut().remove_finished_animations();
         }
 
 
-        for (k, mesh) in assets.get_image("HR").expect("SVG").iter().rev().enumerate() {
-            renderer.render_mesh(gl, state, &format!("test1{}",k), mesh);
-        }
-        for (k, mesh) in assets.get_image("test.svg").expect("SVG").iter().rev().enumerate() {
-            renderer.render_mesh(gl, state, &format!("test2{}",k), mesh);
-        }
+        // for (k, mesh) in assets.get_image("HR").expect("SVG").iter().rev().enumerate() {
+        //     renderer.render_mesh(gl, state, &format!("test1{}",k), mesh);
+        // }
 
 
         if state.show_pick() {
@@ -239,7 +237,7 @@ impl UI {
         self.handling.as_ref().borrow()
     }
 
-    fn handle_mut(&mut self) -> RefMut<HandlersBean> {
+    fn handle_mut(&self) -> RefMut<HandlersBean> {
         self.handling.as_ref().borrow_mut()
     }
 }
@@ -249,8 +247,8 @@ impl HandleContext for UI {
         self.handle_mut().add_bind(source_id, target_id, map_fn);
     }
 
-    fn start_animation(&self, a: Box<dyn Animator>) {
-        self.handle().start_animation(a)
+    fn start_animation(&self, a: Box<dyn Animator>, on_finish: Option<HandlerCallback>) {
+        self.handle().start_animation(a, on_finish)
     }
 
     fn register_handler(&mut self, target_id: usize, message_type: Msg, callback: HandlerCallback) {

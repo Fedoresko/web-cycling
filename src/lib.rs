@@ -91,7 +91,7 @@ impl InnerWebClient {
         let renderer = Rc::new(WebRenderer::new(&gl));
         let mut ui = UI::new(canvas, Rc::clone(&renderer));
 
-        Self::init_ui(&mut ui, w, h);
+        Self::init_ui(&mut ui, &app.assets(), w, h);
 
         let dispatcher = WebEventDispatcher {
             app: app.clone(),
@@ -139,7 +139,7 @@ impl InnerWebClient {
         shape
     }
 
-    fn init_ui(ui: &mut UI, w: u32, h: u32) {
+    fn init_ui(ui: &mut UI, assets: &Assets, w: u32, h: u32) {
         let coords: Vec<(f32, f32)> =
             vec![(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.0, 0.0)];
         let shape: Vec<ShapeSegment> = coords
@@ -189,6 +189,23 @@ impl InnerWebClient {
         let _star_id = ui.add_element(star, 0).unwrap();
         let small_button_id = ui.add_element(small_button, 0).unwrap();
 
+        if let Some(svg) = assets.get_image("test.svg") {
+            let ratio = svg[0].size.1 as f32/svg[0].size.0 as f32;
+            let height = (300.0 * ratio) as u32;
+            let ac_logo = ElemBuilder::new(400, 200, 300, height)
+                .with_background(&[0.0,0.0,0.0,1.0]).svg(svg).build();
+            let svg_id = ui.add_element(ac_logo, 0).unwrap();
+
+            let anim1 = Box::new(Animation::linear(svg_id, FieldSelector::X(0), FieldSelector::X(w as i32 - 300), 1000.0));
+            let anim2 = Box::new(Animation::fade_in_out(svg_id, FieldSelector::BGColor(Vec4::from([0.0,0.0,0.0,0.0])),
+                                                        FieldSelector::BGColor(Vec4::from([0.0,0.0,0.0,1.0])), 1000.0));
+            // let callback : HandlerCallbackMut = RefCell::new(Box::new(move |_msg, context| {
+            //     context.remove_element(svg_id);
+            //     true
+            // } ));
+            ui.start_animation( Box::new(CompositeAnimation { animations: vec![anim1, anim2] }), None);
+        }
+
         ui.register_handler(small_button_id, Msg::MouseDown(0, 0), RefCell::new(Box::new(move |_msg, context| {
             let anim1 = Box::new(Animation::linear(small_button_id,
                                                    FieldSelector::GradientPos0(-0.6), FieldSelector::GradientPos0(1.0), 400.0));
@@ -198,7 +215,7 @@ impl InnerWebClient {
                                                    FieldSelector::GradientPos2(0.0), FieldSelector::GradientPos2(1.6), 400.0));
             let animations: Vec<Box<dyn Animator>> = vec![anim1, anim2, anim3];
             let button_flare = Box::new(CompositeAnimation { animations });
-            context.start_animation(button_flare);
+            context.start_animation(button_flare, None);
             true
         })));
 

@@ -56,15 +56,18 @@ impl Animator for Animation {
         let time = Date::now();
         let progress = (time - self.started) / self.duration;
         if progress > 0.0 && progress <= 1.0 {
-            return vec![(self.act)(progress, self.from, self.to)];
+            vec![(self.act)(progress, self.from, self.to)]
         } else if progress > 1.0 {
             if self.repeat {
                 self.started = Date::now();
+                vec![(self.act)(0.0, self.from, self.to)]
             } else {
                 self.started = FAR_FUTURE;
+                vec![(self.act)(1.0, self.from, self.to)]
             }
+        } else {
+            vec![(self.act)(0.0, self.from, self.to)]
         }
-        Vec::new()
     }
 
     fn get_target(&self) -> usize {
