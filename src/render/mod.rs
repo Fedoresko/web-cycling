@@ -32,6 +32,7 @@ pub struct WebRenderer {
     #[allow(unused)]
     depth_texture_ext: Option<js_sys::Object>,
     vao_ext: VaoExtension,
+    assets: Assets,
 }
 
 impl WebRenderer {
@@ -56,10 +57,11 @@ impl WebRenderer {
             depth_texture_ext,
             shader_sys,
             vao_ext,
+            assets: Assets::new(),
         }
     }
 
-    pub fn render(&self, gl: &WebGlRenderingContext, state: &State, assets: &Assets) {
+    pub fn render(&self, gl: &WebGlRenderingContext, state: &State) {
         gl.clear_color(0.5, 0.5, 0.5, 1.);
         gl.clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT);
         gl.enable(GL::DEPTH_TEST);
@@ -86,7 +88,7 @@ impl WebRenderer {
 
         let mesh_name = "Velodrome";
         let velodrome = NonSkinnedMesh {
-            mesh: assets.get_mesh(mesh_name).expect("Velodrome mesh"),
+            mesh: self.assets.get_mesh(mesh_name).expect("Velodrome mesh"),
             opts: &mesh_opts,
             texture: &TextureUnit::Velodrome,
         };
@@ -105,6 +107,10 @@ impl WebRenderer {
                 .expect("Created vao")
                 .into(),
         )
+    }
+
+    pub fn get_assets(&self) -> &Assets {
+        &self.assets
     }
 
     fn prepare_for_render<'a>(

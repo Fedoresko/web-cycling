@@ -4,9 +4,8 @@ const int MAX_GRADIENT_STOPS = 10;
 varying vec4 aColor;
 uniform vec2 iResolution;
 uniform sampler2D iChannel0;
-//uniform vec2 direction;
 uniform bool blur;
-uniform vec4 element_pos;
+uniform float opacity;
 uniform int n_stops;
 uniform vec4 color_stops[MAX_GRADIENT_STOPS];
 uniform float stop_pos[MAX_GRADIENT_STOPS];
@@ -77,8 +76,8 @@ vec4 applyGradient() {
     if (n_stops == 0) {
         return aColor;
     } else {
-        vec2 a = gradient_pts[0];//element_pos.xy + gradient_pts[0]*element_pos.zw;
-        vec2 b = gradient_pts[1];//element_pos.xy + gradient_pts[1]*element_pos.zw;
+        vec2 a = gradient_pts[0];
+        vec2 b = gradient_pts[1];
         vec2 ab = b - a;
         float t = dot(pos2d.xy - a, ab)/dot(ab, ab);
         if (t <= stop_pos[0]) {
@@ -98,7 +97,7 @@ vec4 applyGradient() {
 
 
 void main() {
-  vec4 baseColor = applyGradient();
+  vec4 baseColor = applyGradient()*vec4(1.0,1.0,1.0,opacity);
   if (blur) {
     vec4 col = mainImage();
     gl_FragColor = vec4(mix(col.rgb, baseColor.rgb, baseColor.w), 1.0);

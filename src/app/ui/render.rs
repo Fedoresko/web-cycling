@@ -1,4 +1,4 @@
-use web_sys::WebGlRenderingContext;
+use web_sys::{console, WebGlRenderingContext};
 use web_sys::WebGlRenderingContext as GL;
 
 use crate::app::ui::element::{Element, LineStyle, ShapeSegment};
@@ -6,7 +6,7 @@ use crate::fields::Vec4;
 use crate::render::Render;
 use crate::shader::{Shader, ShaderKind};
 use crate::{State, WebRenderer};
-use crate::path::SVG;
+use crate::geom::Transform;
 
 pub trait RenderableElement {
     fn get_id(&self) -> usize;
@@ -21,29 +21,37 @@ pub trait RenderableElement {
     fn get_gradient_colors(&self) -> &[Vec4];
     fn get_gradient_start(&self) -> (f32, f32);
     fn get_gradient_end(&self) -> (f32, f32);
-    fn get_svg(&self) -> Option<&SVG>;
+    fn get_svg(&self) -> &Option<String>;
+    fn get_opacity(&self) -> f32;
 
     fn uniform(&self, gl: &WebGlRenderingContext, shader: &Shader) {
-        let pos_uni = shader.get_uniform_location(gl, "element_pos");
+        let transform_uni = shader.get_uniform_location(gl, "transform");
         let pos_attrib = gl.get_attrib_location(&shader.program, "position");
         gl.enable_vertex_attrib_array(pos_attrib as u32);
 
         let w = gl.drawing_buffer_width() as f32;
         let h = gl.drawing_buffer_height() as f32;
-        let sh_x = -w + 1.0;
-        let sh_y = -h + 1.0;
-
+        // let sh_x = -w + 1.0;
+        // let sh_y = -h + 1.0;
+        //
         let pos = self.get_position();
         let sz = self.get_size();
-        gl.uniform4fv_with_f32_array(
-            pos_uni.as_ref(),
-            &[
-                ((pos.0 * 2) as f32 + sh_x) / w,
-                ((pos.1 * 2) as f32 + sh_y) / h,
-                (sz.0 * 2) as f32 / w,
-                (sz.1 * 2) as f32 / h,
-            ],
-        );
+
+        let mut t = Transform::new_scale( sz.0 as f32 * 2.0 / w, sz.1 as f32 * 2.0 / h);
+        console::log_1(&format!("Pre {:?}", t).into());
+        t.translate( pos.0 as f32 * 2.0 /w - 1.0, pos.1 as f32 * 2.0 / h - 1.0);
+        console::log_1(&format!("new {:?}", t).into());
+        gl.uniform_matrix3fv_with_f32_array(transform_uni.as_ref(), false, &t.to_array());
+
+        // gl.uniform4fv_with_f32_array(
+        //     pos_uni.as_ref(),
+        //     &[
+        //         ((pos.0 * 2) as f32 + sh_x) / w,
+        //         ((pos.1 * 2) as f32 + sh_y) / h,
+        //         (sz.0 * 2) as f32 / w,
+        //         (sz.1 * 2) as f32 / h,
+        //     ],
+        // );
     }
 }
 
@@ -68,14 +76,30 @@ where
     }
 
     fn render(&self, gl: &WebGlRenderingContext, state: &State, shader: &Shader, renderer: &WebRenderer) {
+        let w = gl.drawing_buffer_width() as f32;
+        let h = gl.drawing_buffer_height() as f32;
+
         if let Some(svg) = self.get_svg() {
-            for (k, mesh) in svg.path.iter().rev().enumerate() {
+            let transform_uni = shader.get_uniform_location(gl, "transform");
+            let opacity_uni = shader.get_uniform_location(gl, "opacity");
+            let pos = self.get_position();
+            let sz = self.get_size();
+
+            let mut t = Transform::new_scale( sz.0 as f32 * 2.0 / w, sz.1 as f32 * 2.0 / h);
+                //Transform::new_translate(pos.0 as f32 * 2.0 - 1.0, pos.1 as f32 * 2.0 - 1.0);
+            t.translate( pos.0 as f32 * 2.0 / w - 1.0, pos.1 as f32 * 2.0 / h - 1.0);
+            gl.uniform_matrix3fv_with_f32_array(transform_uni.as_ref(), false, &t.to_array());
+            gl.uniform1f(opacity_uni.as_ref(), self.get_opacity());
+
+            for (k, mesh) in renderer.get_assets().get_image(svg.as_str()).unwrap().iter().rev().enumerate() {
                 renderer.render_mesh(gl, state, &format!("svg{}_{}",self.get_id(),k), mesh);
             }
         }
 
-        if (self.get_shape().len() > 0) {
+        if self.get_shape().len() > 0 {
             self.buffer_attributes(gl, shader);
+
+            let opacity_uni = shader.get_uniform_location(gl, "opacity");
             let color_uni = shader.get_uniform_location(gl, "color");
             let blur_uni = shader.get_uniform_location(gl, "blur");
             let texrate_uni = shader.get_uniform_location(gl, "tex_rate");
@@ -86,14 +110,13 @@ where
             let stops_positions_attrib = gl.get_uniform_location(&shader.program, "stop_pos");
             let grad_coords_attrib = gl.get_uniform_location(&shader.program, "gradient_pts");
 
-            let w = gl.drawing_buffer_width() as f32;
-            let h = gl.drawing_buffer_height() as f32;
             gl.uniform2fv_with_f32_array(
                 texrate_uni.as_ref(),
                 &[state.width_rate(), state.height_rate()],
             );
             gl.uniform2fv_with_f32_array(resolution_uni.as_ref(), &[w, h]);
             gl.uniform1i(shader.get_uniform_location(gl, "iChannel0").as_ref(), 0);
+            gl.uniform1f(opacity_uni.as_ref(), self.get_opacity());
 
             if let Some(line_style) = self.get_style() {
                 gl.uniform4fv_with_f32_array(color_uni.as_ref(), &line_style.color);

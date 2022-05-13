@@ -58,6 +58,7 @@ pub enum Msg {
         #[derivative(Hash = "ignore")]i32,
         #[derivative(PartialEq = "ignore")]
         #[derivative(Hash = "ignore")]i32),
+    AnimationFinished,
 }
 
 impl Display for Msg {
@@ -72,21 +73,33 @@ struct EvtKey {
     message_type: Msg,
 }
 
-pub type HandlerCallback = RefCell<Box<dyn Fn(&Msg, &dyn HandleContext) -> bool + 'static>>;
-pub type HandlerCallbackMut = RefCell<Box<dyn Fn(&Msg, &mut dyn HandleContext) -> bool + 'static>>;
+pub type HandlerCallback = Box<dyn Fn(&Msg) -> HandlerImpact + 'static>;
+//pub type HandlerCallbackMut = RefCell<Box<dyn Fn(&Msg) -> HandlerImpact + 'static>>;
 pub type MappingFunction = Box<dyn Fn(&FieldSelector) -> Option<FieldSelector>>;
 
 /// This is an interface to process
 
-pub trait HandleContext {
-    fn add_bind(&mut self, source_id: usize, target_id: usize, map_fn: MappingFunction);
-    fn start_animation(&self, a: Box<dyn Animator>, on_finish: Option<HandlerCallback>);
-    fn register_handler(&mut self, target_id: usize, message_type: Msg, callback: HandlerCallback);
-    fn remove_handler(&mut self, target_id: usize, message_type: Msg);
-    fn add_element(&mut self, elem: Element, parent_id: usize) -> Option<usize>;
-    fn remove_element(&mut self, target_id: usize);
-    fn set(&self, target_id :usize, value: &FieldSelector);
+#[allow(dead_code)]
+pub enum HandlerImpact<'a> {
+    AddBind(usize, usize, MappingFunction),
+    StartAnimation(Box<dyn Animator>, Option<HandlerCallback>),
+    RegisterHandler(usize, Msg, HandlerCallback),
+    RemoveHandler(usize, Msg),
+    AddElement(Element, usize),
+    RemoveElement(usize),
+    Set(usize, &'a FieldSelector),
+    None
 }
+
+// pub trait HandleContext {
+//     fn add_bind(&mut self, source_id: usize, target_id: usize, map_fn: MappingFunction);
+//     fn start_animation(&self, a: Box<dyn Animator>, on_finish: Option<HandlerCallback>);
+//     fn register_handler(&mut self, target_id: usize, message_type: Msg, callback: HandlerCallback);
+//     fn remove_handler(&mut self, target_id: usize, message_type: Msg);
+//     fn add_element(&mut self, elem: Element, parent_id: usize) -> Option<usize>;
+//     fn remove_element(&mut self, target_id: usize);
+//     fn set(&self, target_id :usize, value: &FieldSelector);
+// }
 
 pub(super) struct StoredAnimation {
     pub(super) animator: Box<dyn Animator>,
@@ -123,12 +136,20 @@ impl HandlersBean {
 
     pub fn remove_finished_animations(&mut self) {
         {
-            let anims = self.animations.borrow();
-            let handlers: Vec<&HandlerCallback> = anims.iter().filter(|anim| anim.animator.is_finished()).map(|anim| anim.on_finish.as_ref())
-                .filter(|f| f.is_some()).map(|f| f.unwrap()).collect();
+           let mut impacts = Vec::new();
 
-            for fun in handlers {
-                fun.borrow_mut()(&Msg::AdvanceClock(0.0), self);
+            {
+                let anims = self.animations.borrow();
+                let handlers: Vec<&HandlerCallback> = anims.iter().filter(|anim| anim.animator.is_finished()).map(|anim| anim.on_finish.as_ref())
+                    .filter(|f| f.is_some()).map(|f| f.unwrap()).collect();
+
+                for fun in handlers {
+                    impacts.push(fun(&Msg::AnimationFinished));
+                }
+            }
+
+            for impact in impacts {
+                self.process_impact(impact)
             }
         }
 
@@ -149,14 +170,25 @@ impl HandlersBean {
         };
         res
     }
-}
 
-impl HandleContext for HandlersBean {
-    fn add_bind(&mut self, source_id: usize, target_id: usize, map_fn: MappingFunction) {
+    pub fn process_impact(&mut self, impact: HandlerImpact) {
+        match impact {
+            HandlerImpact::AddBind(source_id, target_id, map_fn) => { self.add_bind(source_id, target_id, map_fn); }
+            HandlerImpact::StartAnimation(animator, on_finish) => { self.start_animation(animator, on_finish); }
+            HandlerImpact::RegisterHandler(target_id, message_type, callback) => { self.register_handler(target_id, message_type, callback); }
+            HandlerImpact::RemoveHandler(target_id, message_type) => { self.remove_handler(target_id, message_type); }
+            HandlerImpact::AddElement(elem, parent_id) => { self.add_element(elem, parent_id); }
+            HandlerImpact::RemoveElement(target_id) => { self.remove_element(target_id); }
+            HandlerImpact::Set(target_id, value) => { self.set(target_id, value); }
+            HandlerImpact::None => {}
+        }
+    }
+
+    pub(super) fn add_bind(&mut self, source_id: usize, target_id: usize, map_fn: MappingFunction) {
         self.dep_links.insert(source_id, (target_id, map_fn));
     }
 
-    fn start_animation(&self, a: Box<dyn Animator>, on_finish: Option<HandlerCallback>) {
+    pub(super) fn start_animation(&self, a: Box<dyn Animator>, on_finish: Option<HandlerCallback>) {
         console::log_1(&format!("Starting animation").into());
         self.animations.borrow_mut().push(StoredAnimation{
             animator: a,
@@ -164,16 +196,16 @@ impl HandleContext for HandlersBean {
         });
     }
 
-    fn register_handler(&mut self, target_id: usize, message_type: Msg, callback: HandlerCallback) {
+    pub(super) fn register_handler(&mut self, target_id: usize, message_type: Msg, callback: HandlerCallback) {
         console::log_1(&format!("Registered handler {} {}", target_id, message_type).into());
         self.elem_handlers.insert(EvtKey { target_id, message_type }, callback);
     }
 
-    fn remove_handler(&mut self, target_id: usize, message_type: Msg) {
+    pub(super) fn remove_handler(&mut self, target_id: usize, message_type: Msg) {
         self.elem_handlers.remove(&EvtKey { target_id, message_type });
     }
 
-    fn add_element(&mut self, elem: Element, parent_id: usize)  -> Option<usize> {
+    pub(super) fn add_element(&mut self, elem: Element, parent_id: usize)  -> Option<usize> {
         let mut element = elem;
         let pos = self.elements.len();
         element.set_id(pos);
@@ -183,7 +215,7 @@ impl HandleContext for HandlersBean {
         Some(pos)
     }
 
-    fn remove_element(&mut self, target_id: usize) {
+    pub(super) fn remove_element(&mut self, target_id: usize) {
         let mut to_remove = HashSet::new();
         to_remove.insert(target_id);
         to_remove.extend(self.collect_children(target_id));
@@ -219,7 +251,7 @@ impl HandleContext for HandlersBean {
         }
     }
 
-    fn set(&self, target_id: usize, value: &FieldSelector) {
+    pub(super) fn set(&self, target_id: usize, value: &FieldSelector) {
         self.elements[target_id].borrow_mut().set(*value);
         let mut notif_stack = Vec::new();
         notif_stack.push((target_id, value.clone()));

@@ -1,8 +1,6 @@
-use svg_load::path::RenderablePath;
 use crate::app::ui::drag::DraggableElement;
 use crate::app::ui::render::RenderableElement;
 use crate::fields::{FieldSelector, Vec4};
-use crate::path::SVG;
 
 #[derive(Clone, Copy)]
 pub struct LineStyle {
@@ -37,7 +35,7 @@ pub struct Element {
     gradient_colors: Option<Vec<Vec4>>,
     gradient_start: Option<(f32, f32)>,
     gradient_end: Option<(f32, f32)>,
-    svg: Option<SVG>,
+    svg: Option<String>,
 }
 
 pub struct ElemBuilder {
@@ -56,7 +54,7 @@ pub struct ElemBuilder {
     gradient_colors: Option<Vec<Vec4>>,
     gradient_start: Option<(f32, f32)>,
     gradient_end: Option<(f32, f32)>,
-    svg: Option<SVG>,
+    svg: Option<String>,
 }
 
 impl Element  {
@@ -70,26 +68,11 @@ impl Element  {
 
     pub (super) fn set(&mut self, field: FieldSelector) {
         match field {
-            FieldSelector::X(value) => {
-                self.x = value;
-                self.update_pos()
-            }
-            FieldSelector::Y(value) => {
-                self.y = value;
-                self.update_pos()
-            }
-            FieldSelector::Width(value) => {
-                self.width = value;
-                self.update_size();
-            }
-            FieldSelector::Height(value) => {
-                self.height = value;
-                self.update_size();
-            }
-            FieldSelector::BGColor(value) => {
-                self.bgcolor = value;
-                self.update_opacity();
-            }
+            FieldSelector::X(value) => { self.x = value; }
+            FieldSelector::Y(value) => { self.y = value; }
+            FieldSelector::Width(value) => { self.width = value; }
+            FieldSelector::Height(value) => { self.height = value; }
+            FieldSelector::BGColor(value) => { self.bgcolor = value; }
             FieldSelector::GradientPos0(value) => { self.gradient_pos.as_mut().unwrap()[0] = value; }
             FieldSelector::GradientColors0(value) => { self.gradient_colors.as_mut().unwrap()[0] = value; }
             FieldSelector::GradientPos1(value) => { self.gradient_pos.as_mut().unwrap()[1] = value; }
@@ -103,36 +86,12 @@ impl Element  {
         }
     }
 
-    fn update_pos(&mut self) {
-        if let Some(svg) = self.svg.as_mut() {
-            for p in &mut svg.path {
-                p.pos = (self.x, self.y)
-            }
-        }
-    }
-
-    fn update_size(&mut self) {
-        if let Some(svg) = self.svg.as_mut() {
-            for p in &mut svg.path {
-                p.sz = (self.width, self.height)
-            }
-        }
-    }
-
-    fn update_opacity(&mut self) {
-        if let Some(svg) = self.svg.as_mut() {
-            for p in &mut svg.path {
-                p.opacity = self.bgcolor[3];
-            }
-        }
-    }
-
     pub fn get_id(&self) -> usize {
         self.id
     }
 
-    pub fn get_svg(&self) -> Option<&SVG> {
-        self.svg.as_ref()
+    pub fn get_svg(&self) -> &Option<String> {
+        &self.svg
     }
 }
 
@@ -217,8 +176,8 @@ impl ElemBuilder {
         self
     }
 
-    pub fn svg(&mut self, svg: &Vec<RenderablePath>) -> &mut Self {
-        self.svg = Some(SVG::new((self.x, self.y), (self.width, self.height), self.bgcolor[3], svg));
+    pub fn svg(&mut self, svg: &str) -> &mut Self {
+        self.svg = Some(String::from(svg));
         self
     }
 
@@ -260,7 +219,6 @@ impl ElemBuilder {
             gradient_colors: self.gradient_colors.clone(),
             svg: self.svg.clone(),
         };
-        elem.update_opacity();
         elem
     }
 }
@@ -321,7 +279,11 @@ impl RenderableElement for Element {
         self.gradient_end.unwrap()
     }
 
-    fn get_svg(&self) -> Option<&SVG> {
-        self.svg.as_ref()
+    fn get_svg(&self) -> &Option<String> {
+        &self.svg
+    }
+
+    fn get_opacity(&self) -> f32 {
+        self.bgcolor[3]
     }
 }

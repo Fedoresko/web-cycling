@@ -12,8 +12,7 @@ use web_sys::WebGlRenderingContext as GL;
 
 use crate::animation::Animator;
 use crate::app::ui::drag::Draggable;
-use crate::{Assets, EventTarget, FieldSelector};
-use crate::messaging::{HandleContext, HandlerCallbackMut};
+use crate::{EventTarget, FieldSelector};
 use crate::messaging::HandlerCallback;
 use crate::messaging::HandlersBean;
 use crate::messaging::Msg;
@@ -33,6 +32,7 @@ pub mod path;
 pub mod fields;
 pub mod messaging;
 pub mod text;
+pub mod geom;
 
 pub struct UI {
     canvas: HtmlCanvasElement,
@@ -46,7 +46,7 @@ pub struct UI {
     start_drag_x: i32,
     start_drag_y: i32,
 
-    handling: Rc<RefCell<HandlersBean>>,
+    handling: RefCell<HandlersBean>,
 
     _svg: Option<Vec<RenderablePath>>,
 }
@@ -83,7 +83,7 @@ impl UI {
             drag_elem: None,
             start_drag_x: 0,
             start_drag_y: 0,
-            handling: Rc::new(RefCell::new(handling)),
+            handling: RefCell::new(handling),
             _svg: None,
         }
     }
@@ -106,7 +106,6 @@ impl UI {
         &self,
         gl: &WebGlRenderingContext,
         state: &State,
-        assets: &Assets,
         renderer: &WebRenderer,
     ) {
         gl.viewport(0, 0, state.viewport_width(), state.viewport_height());
@@ -130,23 +129,23 @@ impl UI {
             renderer.render_mesh(gl, state, "background", &background);
         }
 
-        {
-            let font = assets.get_font("Roboto-Light").unwrap();
-            let rs = RenderableString {
-                string: String::from("Съешь ещё этих мягких французских булок, да выпей чаю."),
-                //string: String::from("The quick brown fox jumps over a lazy dog."),//The quick brown fox jumps over a lazy dog.
-                font_size: 16.0,
-                color: [0.0,0.0,0.0,1.0],
-                position: (200, 600),
-                font: font
-            };
-            renderer.render_mesh(gl, state, "text",&rs);
-        }
+        // {
+        //     let font = assets.get_font("Roboto-Light").unwrap();
+        //     let rs = RenderableString {
+        //         string: String::from("Съешь ещё этих мягких французских булок, да выпей чаю."),
+        //         //string: String::from("The quick brown fox jumps over a lazy dog."),//The quick brown fox jumps over a lazy dog.
+        //         font_size: 16.0,
+        //         color: [0.0,0.0,0.0,1.0],
+        //         position: (200, 600),
+        //         font: font
+        //     };
+        //     renderer.render_mesh(gl, state, "text",&rs);
+        // }
 
         {
-            for animation in self.handling.as_ref().borrow().animations.borrow_mut().deref_mut() {
+            for animation in self.handle().animations.borrow_mut().deref_mut() {
                 for res in animation.animator.animate() {
-                    self.handling.as_ref().borrow().set(animation.animator.get_target(), &res);
+                    self.handle().set(animation.animator.get_target(), &res);
                 }
             }
 
@@ -234,47 +233,45 @@ impl UI {
     }
 
     fn handle(&self) -> Ref<HandlersBean> {
-        self.handling.as_ref().borrow()
+        self.handling.borrow()
     }
 
     fn handle_mut(&self) -> RefMut<HandlersBean> {
-        self.handling.as_ref().borrow_mut()
+        self.handling.borrow_mut()
     }
-}
 
-impl HandleContext for UI {
-    fn add_bind(&mut self, source_id: usize, target_id: usize, map_fn: Box<dyn Fn(&FieldSelector) -> Option<FieldSelector>>) {
+    pub fn add_bind(&mut self, source_id: usize, target_id: usize, map_fn: Box<dyn Fn(&FieldSelector) -> Option<FieldSelector>>) {
         self.handle_mut().add_bind(source_id, target_id, map_fn);
     }
 
-    fn start_animation(&self, a: Box<dyn Animator>, on_finish: Option<HandlerCallback>) {
+    pub fn start_animation(&self, a: Box<dyn Animator>, on_finish: Option<HandlerCallback>) {
         self.handle().start_animation(a, on_finish)
     }
 
-    fn register_handler(&mut self, target_id: usize, message_type: Msg, callback: HandlerCallback) {
+    pub fn register_handler(&mut self, target_id: usize, message_type: Msg, callback: HandlerCallback) {
         self.handle_mut().register_handler(target_id, message_type, callback)
     }
 
-    fn remove_handler(&mut self, target_id: usize, message_type: Msg) {
+    pub fn remove_handler(&mut self, target_id: usize, message_type: Msg) {
         self.handle_mut().remove_handler(target_id, message_type)
     }
 
-    fn add_element(&mut self, elem: Element, parent_id: usize) -> Option<usize> {
+    pub fn add_element(&mut self, elem: Element, parent_id: usize) -> Option<usize> {
         let option = self.handle_mut().add_element(elem, parent_id);
         let res = option.unwrap();
         console::log_1(&format!("Added element {} with parent {}", res, parent_id).into());
-        for el in &self.handling.as_ref().borrow().elements {
+        for el in &self.handle().elements {
             let e = el.borrow();
             console::log_1(&format!("Element {} with parent {}", e.get_id(), e.parent_element).into());
         };
         Some(res)
     }
 
-    fn remove_element(&mut self, target_id: usize) {
+    pub fn remove_element(&mut self, target_id: usize) {
         self.handle_mut().remove_element(target_id)
     }
 
-    fn set(&self, target_id: usize, value: &FieldSelector) {
+    pub fn set(&self, target_id: usize, value: &FieldSelector) {
         self.handle().set(target_id, value);
     }
 }
@@ -294,19 +291,19 @@ impl EventTarget for UI {
                     let target_id = pick.unwrap();
                     let mut consume;
 
+                    let mut handler_impact;
                     {
                         let handle_bean = self.handle();
-                        let handler = handle_bean.get_handler(target_id, *msg);
-
-                        consume = if handler.is_some() {
-                            console::log_1(&format!("found").into());
-                            handler.unwrap().borrow_mut()(msg, self.handling.clone().as_ref().borrow().deref())
-                        } else {
-                            console::log_1(&format!("not found {}", target_id).into());
-                            false
-                        }
+                        handler_impact = handle_bean.get_handler(target_id, *msg).map( | h| h(msg) );
                     }
-
+                    consume = if let Some(impact) = handler_impact {
+                        console::log_1(&format!("found").into());
+                        self.handle_mut().process_impact( impact );
+                        true
+                    } else {
+                        console::log_1(&format!("not found {}", target_id).into());
+                        false
+                    };
 
                     if self.handle().elements[target_id].borrow().is_draggable() {
                         console::log_1(&format!("starting drag for {}", target_id).into());
@@ -335,8 +332,8 @@ impl EventTarget for UI {
             Msg::ResizeViewport(w, h) => {
                 self.canvas.set_width(*w as u32);
                 self.canvas.set_height(*h as u32);
-                self.handling.clone().as_ref().borrow().set(0, &FieldSelector::Width(*w as u32));
-                self.handling.clone().as_ref().borrow().set(0, &FieldSelector::Height(*h as u32));
+                self.handle().set(0, &FieldSelector::Width(*w as u32));
+                self.handle().set(0, &FieldSelector::Height(*h as u32));
                 self.gl.delete_framebuffer( self.pick_fbo.as_ref() );
                 let (_screen_texture, fbo) = Framebuffer::create_texture_frame_buffer(*w as i32, *h as i32, &self.gl);
                 self.pick_fbo = fbo;

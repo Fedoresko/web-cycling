@@ -21,7 +21,7 @@ pub(in crate) use self::app::*;
 use self::app::ui::UI;
 use self::canvas::*;
 use self::render::*;
-use crate::messaging::{HandleContext, Msg};
+use crate::messaging::{HandlerImpact, Msg};
 
 mod app;
 mod canvas;
@@ -91,7 +91,7 @@ impl InnerWebClient {
         let renderer = Rc::new(WebRenderer::new(&gl));
         let mut ui = UI::new(canvas, Rc::clone(&renderer));
 
-        Self::init_ui(&mut ui, &app.assets(), w, h);
+        Self::init_ui(&mut ui, w, h);
 
         let dispatcher = WebEventDispatcher {
             app: app.clone(),
@@ -139,7 +139,7 @@ impl InnerWebClient {
         shape
     }
 
-    fn init_ui(ui: &mut UI, assets: &Assets, w: u32, h: u32) {
+    fn init_ui(ui: &mut UI, w: u32, h: u32) {
         let coords: Vec<(f32, f32)> =
             vec![(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.0, 0.0)];
         let shape: Vec<ShapeSegment> = coords
@@ -189,24 +189,24 @@ impl InnerWebClient {
         let _star_id = ui.add_element(star, 0).unwrap();
         let small_button_id = ui.add_element(small_button, 0).unwrap();
 
-        if let Some(svg) = assets.get_image("test.svg") {
-            let ratio = svg[0].size.1 as f32/svg[0].size.0 as f32;
-            let height = (300.0 * ratio) as u32;
-            let ac_logo = ElemBuilder::new(400, 200, 300, height)
-                .with_background(&[0.0,0.0,0.0,1.0]).svg(svg).build();
-            let svg_id = ui.add_element(ac_logo, 0).unwrap();
+        let ac_logo = ElemBuilder::new(400, 200, 300, 250)
+            .with_background(&[0.0,0.0,0.0,1.0]).svg("test.svg").build();
+        let svg_id = ui.add_element(ac_logo, 0).unwrap();
 
-            let anim1 = Box::new(Animation::linear(svg_id, FieldSelector::X(0), FieldSelector::X(w as i32 - 300), 1000.0));
-            let anim2 = Box::new(Animation::fade_in_out(svg_id, FieldSelector::BGColor(Vec4::from([0.0,0.0,0.0,0.0])),
-                                                        FieldSelector::BGColor(Vec4::from([0.0,0.0,0.0,1.0])), 1000.0));
-            // let callback : HandlerCallbackMut = RefCell::new(Box::new(move |_msg, context| {
-            //     context.remove_element(svg_id);
-            //     true
-            // } ));
-            ui.start_animation( Box::new(CompositeAnimation { animations: vec![anim1, anim2] }), None);
-        }
+        let anim1 = Box::new(Animation::linear(svg_id, FieldSelector::X(0), FieldSelector::X(w as i32 - 300), 1000.0));
+        let anim2 = Box::new(Animation::fade_in_out(svg_id, FieldSelector::BGColor(Vec4::from([0.0,0.0,0.0,0.0])),
+                                                    FieldSelector::BGColor(Vec4::from([0.0,0.0,0.0,1.0])), 1000.0));
+        // let callback : HandlerCallbackMut = RefCell::new(Box::new(move |_msg, context| {
+        //     context.remove_element(svg_id);
+        //     true
+        // } ));
+        ui.start_animation( Box::new(CompositeAnimation { animations: vec![anim1, anim2] }), Some(
+            Box::new(move |_m| {
+                HandlerImpact::RemoveElement(svg_id)
+            })
+        ));
 
-        ui.register_handler(small_button_id, Msg::MouseDown(0, 0), RefCell::new(Box::new(move |_msg, context| {
+        ui.register_handler(small_button_id, Msg::MouseDown(0, 0), Box::new(move |_msg| {
             let anim1 = Box::new(Animation::linear(small_button_id,
                                                    FieldSelector::GradientPos0(-0.6), FieldSelector::GradientPos0(1.0), 400.0));
             let anim2 = Box::new(Animation::linear(small_button_id,
@@ -215,9 +215,8 @@ impl InnerWebClient {
                                                    FieldSelector::GradientPos2(0.0), FieldSelector::GradientPos2(1.6), 400.0));
             let animations: Vec<Box<dyn Animator>> = vec![anim1, anim2, anim3];
             let button_flare = Box::new(CompositeAnimation { animations });
-            context.start_animation(button_flare, None);
-            true
-        })));
+            HandlerImpact::StartAnimation(button_flare, None)
+        }));
 
         ui.add_bind(0, _big_box_id, Box::new(|fs : &FieldSelector| {
             if let FieldSelector::Height(h) = *fs {
@@ -246,14 +245,14 @@ impl WC for InnerWebClient {
         gl.bind_framebuffer(GL::FRAMEBUFFER, self.fbo.as_ref());
 
         self.renderer
-            .render(gl, &self.app.store.borrow().state, &self.app.assets());
+            .render(gl, &self.app.store.borrow().state);
 
         //Apply filters and draw UI
         gl.bind_framebuffer(GL::FRAMEBUFFER, None);
         gl.active_texture(GL::TEXTURE0);
         gl.bind_texture(GL::TEXTURE_2D, self.screen_texture.as_ref());
 
-        ui.render_elements(gl, &self.app.store.borrow().state, &self.app.assets(), &self.renderer);
+        ui.render_elements(gl, &self.app.store.borrow().state, &self.renderer);
     }
 
     fn load_textures(&self) {
