@@ -1,5 +1,5 @@
 use core::fmt;
-use web_sys::WebGlRenderingContext as GL;
+use web_sys::WebGl2RenderingContext as GL;
 
 #[derive(Clone, Copy)]
 pub enum TextureUnit {

@@ -1,5 +1,5 @@
-use web_sys::{console, WebGlRenderingContext};
-use web_sys::WebGlRenderingContext as GL;
+use web_sys::{console, WebGl2RenderingContext};
+use web_sys::WebGl2RenderingContext as GL;
 
 use crate::app::ui::element::{Element, LineStyle, ShapeSegment};
 use crate::fields::Vec4;
@@ -24,7 +24,7 @@ pub trait RenderableElement {
     fn get_svg(&self) -> &Option<String>;
     fn get_opacity(&self) -> f32;
 
-    fn uniform(&self, gl: &WebGlRenderingContext, shader: &Shader) {
+    fn uniform(&self, gl: &WebGl2RenderingContext, shader: &Shader) {
         let transform_uni = shader.get_uniform_location(gl, "transform");
         let pos_attrib = gl.get_attrib_location(&shader.program, "position");
         gl.enable_vertex_attrib_array(pos_attrib as u32);
@@ -63,7 +63,7 @@ where
         ShaderKind::UI
     }
 
-    fn buffer_attributes(&self, gl: &WebGlRenderingContext, shader: &Shader) {
+    fn buffer_attributes(&self, gl: &WebGl2RenderingContext, shader: &Shader) {
         self.uniform(gl, shader);
 
         let pos_attrib = gl.get_attrib_location(&shader.program, "position");
@@ -75,7 +75,7 @@ where
         Element::buffer_f32_data(&gl, &t, pos_attrib as u32, 3);
     }
 
-    fn render(&self, gl: &WebGlRenderingContext, state: &State, shader: &Shader, renderer: &WebRenderer) {
+    fn render(&self, gl: &WebGl2RenderingContext, state: &State, shader: &Shader, renderer: &WebRenderer) {
         let w = gl.drawing_buffer_width() as f32;
         let h = gl.drawing_buffer_height() as f32;
 

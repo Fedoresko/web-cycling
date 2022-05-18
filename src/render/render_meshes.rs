@@ -1,8 +1,8 @@
 use wasm_bindgen::JsValue;
-use web_sys::{WebGlRenderingContext as GL};
+use web_sys::{WebGl2RenderingContext as GL};
 
 use crate::app::ui::picking::PickingRender;
-use crate::render::{Render, Vao};
+use crate::render::Render;
 use crate::render::WebRenderer;
 use crate::shader::ShaderKind::UIPicking;
 use crate::State;
@@ -13,7 +13,7 @@ use crate::State;
 
 impl WebRenderer {
     pub fn render_picking(&self, gl: &GL, mesh: &impl PickingRender) -> usize {
-        self.bind_vao(&Vao(JsValue::NULL.into()));
+        gl.bind_vertex_array(None);
     
         self.shader_sys.use_program(gl, UIPicking);
         let shader = self.shader_sys.get_shader(&UIPicking).unwrap();

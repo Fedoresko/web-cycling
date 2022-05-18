@@ -2,7 +2,7 @@ use crate::app::State;
 use crate::render::Render;
 use crate::shader::Shader;
 use crate::shader::ShaderKind;
-use web_sys::WebGlRenderingContext as GL;
+use web_sys::WebGl2RenderingContext as GL;
 use web_sys::*;
 use crate::WebRenderer;
 
@@ -62,7 +62,7 @@ impl Render for TexturedQuad {
         TexturedQuad::buffer_f32_data(&gl, &vertex_data[..], vertex_data_attrib as u32, 4);
     }
 
-    fn render(&self, gl: &WebGlRenderingContext, _state: &State, shader: &Shader, _: &WebRenderer) {
+    fn render(&self, gl: &WebGl2RenderingContext, _state: &State, shader: &Shader, _: &WebRenderer) {
         gl.uniform1i(
             shader.get_uniform_location(gl, "texture").as_ref(),
             self.texture_unit as i32,

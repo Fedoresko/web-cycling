@@ -1,5 +1,5 @@
 use web_sys::*;
-use web_sys::WebGlRenderingContext as GL;
+use web_sys::WebGl2RenderingContext as GL;
 
 pub struct Framebuffer {
     pub framebuffer: Option<WebGlFramebuffer>,
@@ -8,10 +8,43 @@ pub struct Framebuffer {
 }
 
 impl Framebuffer {
+    pub fn create_framebuffers_multisampling(w: i32,
+                                             h: i32,
+                                             gl: &WebGl2RenderingContext,) -> (Option<WebGlTexture>, Option<WebGlFramebuffer>, Option<WebGlFramebuffer>) {
+        let renderbuffer = Self::create_msaa_fbo(w, h, gl);
+
+        let colorbuffer = gl.create_framebuffer();
+        let texture = gl.create_texture();
+        gl.bind_texture(GL::TEXTURE_2D, texture.as_ref());
+        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, GL::NEAREST as i32);
+        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, GL::NEAREST as i32);
+        gl.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
+            GL::TEXTURE_2D, 0, GL::RGBA as i32, w, h, 0, GL::RGBA, GL::UNSIGNED_BYTE, None).expect("Cannot set texture for FBO");
+        gl.bind_texture(GL::TEXTURE_2D, None);
+
+        gl.bind_framebuffer(GL::FRAMEBUFFER, colorbuffer.as_ref());
+        gl.framebuffer_texture_2d(GL::FRAMEBUFFER, GL::COLOR_ATTACHMENT0, GL::TEXTURE_2D, texture.as_ref(), 0);
+        gl.bind_framebuffer(GL::FRAMEBUFFER, None);
+        (Some(texture.unwrap()), Some(renderbuffer.unwrap()), Some(colorbuffer.unwrap()))
+    }
+
+    fn create_msaa_fbo(w: i32, h: i32, gl: &WebGl2RenderingContext) -> Option<WebGlFramebuffer> {
+        let renderbuffer = gl.create_framebuffer();
+
+        let color_renderbuffer = gl.create_renderbuffer();
+        gl.bind_renderbuffer(GL::RENDERBUFFER, color_renderbuffer.as_ref());
+        gl.renderbuffer_storage_multisample(GL::RENDERBUFFER, 4, GL::RGBA8, w, h);
+
+        gl.bind_framebuffer(GL::FRAMEBUFFER, renderbuffer.as_ref());
+        gl.framebuffer_renderbuffer(GL::FRAMEBUFFER, GL::COLOR_ATTACHMENT0, GL::RENDERBUFFER, color_renderbuffer.as_ref());
+        gl.bind_framebuffer(GL::FRAMEBUFFER, None);
+        renderbuffer
+    }
+
     pub fn create_texture_frame_buffer(
         w: i32,
         h: i32,
-        gl: &WebGlRenderingContext,
+        gl: &WebGl2RenderingContext,
     ) -> (Option<WebGlTexture>, Option<WebGlFramebuffer>) {
         let target_texture = gl.create_texture();
         gl.active_texture(GL::TEXTURE0);

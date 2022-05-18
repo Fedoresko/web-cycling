@@ -9,7 +9,7 @@ use js_sys::Date;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use web_sys::*;
-use web_sys::WebGlRenderingContext as GL;
+use web_sys::WebGl2RenderingContext as GL;
 use crate::animation::{Animation, Animator, CompositeAnimation};
 use crate::element::{ElemBuilder, LineStyle, ShapeSegment};
 use crate::fields::{FieldSelector, Vec4};
@@ -62,11 +62,13 @@ impl EventTarget for WebEventDispatcher {
 
 struct InnerWebClient {
     app: Rc<App>,
-    gl: Rc<WebGlRenderingContext>,
+    gl: Rc<WebGl2RenderingContext>,
     renderer: Rc<WebRenderer>,
     event_dispatcher: Rc<RefCell<Option<WebEventDispatcher>>>,
     screen_texture: Option<WebGlTexture>,
     fbo: Option<WebGlFramebuffer>,
+    renderbuffer: Option<WebGlFramebuffer>,
+    colorbuffer: Option<WebGlFramebuffer>,
 }
 
 impl InnerWebClient {
@@ -100,8 +102,10 @@ impl InnerWebClient {
 
         *event_dispatcher.borrow_mut() = Some(dispatcher);
 
-        let (screen_texture, fbo) =
-            Framebuffer::create_texture_frame_buffer(scr_width, scr_height, &gl);
+        // let (screen_texture, fbo) =
+        //     Framebuffer::create_texture_frame_buffer(scr_width, scr_height, &gl);
+
+        let (screen_texture, renderbuffer, colorbuffer) = Framebuffer::create_framebuffers_multisampling(scr_width, scr_height, &gl);
 
         let gl_ref = Rc::new(gl);
         InnerWebClient {
@@ -110,7 +114,9 @@ impl InnerWebClient {
             renderer,
             event_dispatcher: event_dispatcher.clone(),
             screen_texture,
-            fbo,
+            fbo:None,
+            renderbuffer,
+            colorbuffer,
         }
     }
 
@@ -242,10 +248,23 @@ impl WC for InnerWebClient {
         let gl = &self.gl;
 
         //Draw 3D scene
-        gl.bind_framebuffer(GL::FRAMEBUFFER, self.fbo.as_ref());
+        // gl.bind_framebuffer(GL::FRAMEBUFFER, self.fbo.as_ref());
+        gl.bind_framebuffer(GL::FRAMEBUFFER, self.renderbuffer.as_ref());
 
         self.renderer
             .render(gl, &self.app.store.borrow().state);
+
+        let w = gl.drawing_buffer_width();
+        let h = gl.drawing_buffer_height();
+
+        gl.bind_framebuffer(GL::READ_FRAMEBUFFER, self.renderbuffer.as_ref());
+        gl.bind_framebuffer(GL::DRAW_FRAMEBUFFER, self.colorbuffer.as_ref());
+        gl.clear_bufferfv_with_f32_array(GL::COLOR, 0, &[0.0, 0.0, 0.0, 1.0]);
+        gl.blit_framebuffer(
+            0, 0, w, h,
+            0, 0, w, h,
+            GL::COLOR_BUFFER_BIT, GL::NEAREST
+        );
 
         //Apply filters and draw UI
         gl.bind_framebuffer(GL::FRAMEBUFFER, None);

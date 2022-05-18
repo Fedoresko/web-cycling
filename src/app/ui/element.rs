@@ -116,6 +116,7 @@ impl ShapeSegment {
     }
 }
 
+#[allow(dead_code)]
 impl ElemBuilder {
     pub fn new(x: i32, y: i32, w: u32, h: u32) -> Self {
         ElemBuilder {
@@ -195,7 +196,7 @@ impl ElemBuilder {
     }
 
     pub fn build(&self) -> Element {
-        let mut elem = Element {
+        let elem = Element {
             id: self.id,
             shape: self.shape.clone(),
             style: self.style,

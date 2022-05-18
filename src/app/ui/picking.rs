@@ -1,4 +1,4 @@
-use web_sys::WebGlRenderingContext as GL;
+use web_sys::WebGl2RenderingContext as GL;
 
 use crate::app::ui::element::Element;
 use crate::app::ui::render::RenderableElement;

@@ -5,7 +5,7 @@ use nalgebra;
 use nalgebra::{Isometry3, Vector3};
 use wasm_bindgen::__rt::core::time::Duration;
 use web_sys::*;
-use web_sys::WebGlRenderingContext as GL;
+use web_sys::WebGl2RenderingContext as GL;
 
 use crate::app::State;
 use crate::render::mesh::non_skinned_mesh::MeshRenderOpts;
@@ -26,7 +26,7 @@ impl Render for SkinnedMesh<'_> {
         ShaderKind::SkinnedMesh
     }
 
-    fn buffer_attributes(&self, gl: &WebGlRenderingContext, shader: &Shader) {
+    fn buffer_attributes(&self, gl: &WebGl2RenderingContext, shader: &Shader) {
         let mesh = self.mesh;
 
         let pos_attrib = gl.get_attrib_location(&shader.program, "position");
@@ -70,7 +70,7 @@ impl Render for SkinnedMesh<'_> {
         SkinnedMesh::buffer_u16_indices(&gl, mesh.indices());
     }
 
-    fn render(&self, gl: &WebGlRenderingContext, state: &State, shader: &Shader, _: &WebRenderer) {
+    fn render(&self, gl: &WebGl2RenderingContext, state: &State, shader: &Shader, _: &WebRenderer) {
         let mesh = self.mesh;
         let opts = self.opts;
         let pos = opts.pos;
@@ -113,7 +113,7 @@ impl Render for SkinnedMesh<'_> {
 }
 
 impl<'a> SkinnedMesh<'a> {
-    fn set_armature_uniforms(&self, gl: &WebGlRenderingContext, state: &State, shader: &Shader) {
+    fn set_armature_uniforms(&self, gl: &WebGl2RenderingContext, state: &State, shader: &Shader) {
         let armature = &self.armature;
 
         let clock = state.clock();

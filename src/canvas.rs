@@ -6,7 +6,7 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::*;
 use web_sys::*;
-use web_sys::WebGlRenderingContext as GL;
+use web_sys::WebGl2RenderingContext as GL;
 
 use crate::messaging::Msg;
 use crate::{EventTarget, WebEventDispatcher};
@@ -23,12 +23,12 @@ pub fn send_msg(dispatcher: EventDispatcher, msg: &Msg) {
         .msg(msg);
 }
 
-pub fn create_webgl_context(canvas: &HtmlCanvasElement) -> Result<WebGlRenderingContext, JsValue> {
+pub fn create_webgl_context(canvas: &HtmlCanvasElement) -> Result<WebGl2RenderingContext, JsValue> {
     let result = JsValue::from_serde(&serde_json::json!({
-        "antialias": true,
+        "antialias": false,
     }));
-    let gl: WebGlRenderingContext = canvas
-        .get_context_with_context_options("webgl", &result.unwrap())?
+    let gl: WebGl2RenderingContext = canvas
+        .get_context_with_context_options("webgl2", &result.unwrap())?
         .unwrap()
         .dyn_into()?;
 

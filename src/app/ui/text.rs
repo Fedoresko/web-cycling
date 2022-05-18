@@ -1,8 +1,8 @@
 use svg_load::font::{Font, Glyph};
-use web_sys::{console, WebGlRenderingContext};
+use web_sys::{console, WebGl2RenderingContext};
 use crate::{Render, State, WebRenderer};
 use crate::shader::{Shader, ShaderKind};
-use web_sys::WebGlRenderingContext as GL;
+use web_sys::WebGl2RenderingContext as GL;
 use crate::geom::Transform;
 
 pub struct RenderableString<'a> {
@@ -88,7 +88,7 @@ impl Render for Glyph {
         ShaderKind::UI
     }
 
-    fn buffer_attributes(&self, gl: &WebGlRenderingContext, shader: &Shader) {
+    fn buffer_attributes(&self, gl: &WebGl2RenderingContext, shader: &Shader) {
         let mesh = &self.outline;
         let pos_attrib = gl.get_attrib_location(&shader.program, "position");
         gl.enable_vertex_attrib_array(pos_attrib as u32);
@@ -107,7 +107,7 @@ impl Render for Glyph {
         RenderableString::buffer_u16_indices(&gl, &mesh.indices.iter().map(|i| *i as u16).collect::<Vec<u16>>() );
     }
 
-    fn render(&self, gl: &WebGlRenderingContext, _: &State, _: &Shader, _: &WebRenderer) {
+    fn render(&self, gl: &WebGl2RenderingContext, _: &State, _: &Shader, _: &WebRenderer) {
         let num_indices = self.outline.indices.len();
         gl.draw_elements_with_i32(GL::TRIANGLES, num_indices as i32, GL::UNSIGNED_SHORT, 0);
     }

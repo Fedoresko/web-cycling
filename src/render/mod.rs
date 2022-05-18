@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use js_sys::Reflect;
 use web_sys::*;
-use web_sys::WebGlRenderingContext as GL;
+use web_sys::WebGl2RenderingContext as GL;
 
 use crate::app::Assets;
 use crate::app::State;
@@ -21,47 +21,33 @@ mod texture_unit;
 pub mod textured_quad;
 
 struct VaoExtension {
-    oes_vao_ext: js_sys::Object,
     vaos: RefCell<HashMap<String, Vao>>,
 }
 
-pub struct Vao(js_sys::Object);
+pub type Vao = Option<WebGlVertexArrayObject>;
 
 pub struct WebRenderer {
     shader_sys: ShaderSystem,
-    #[allow(unused)]
-    depth_texture_ext: Option<js_sys::Object>,
     vao_ext: VaoExtension,
     assets: Assets,
 }
 
 impl WebRenderer {
-    pub fn new(gl: &WebGlRenderingContext) -> WebRenderer {
+    pub fn new(gl: &WebGl2RenderingContext) -> WebRenderer {
         let shader_sys = ShaderSystem::new(&gl);
 
-        let depth_texture_ext = gl
-            .get_extension("WEBGL_depth_texture")
-            .expect("Depth texture extension");
-
-        let oes_vao_ext = gl
-            .get_extension("OES_vertex_array_object")
-            .expect("Get OES vao ext")
-            .expect("OES vao ext");
-
         let vao_ext = VaoExtension {
-            oes_vao_ext,
             vaos: RefCell::new(HashMap::new()),
         };
 
         WebRenderer {
-            depth_texture_ext,
             shader_sys,
             vao_ext,
             assets: Assets::new(),
         }
     }
 
-    pub fn render(&self, gl: &WebGlRenderingContext, state: &State) {
+    pub fn render(&self, gl: &WebGl2RenderingContext, state: &State) {
         gl.clear_color(0.5, 0.5, 0.5, 1.);
         gl.clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT);
         gl.enable(GL::DEPTH_TEST);
@@ -95,19 +81,19 @@ impl WebRenderer {
         self.render_mesh(gl, state, mesh_name, &velodrome);
     }
 
-    fn create_vao(&self) -> Vao {
-        let oes_vao_ext = &self.vao_ext.oes_vao_ext;
-
-        let create_vao_ext = Reflect::get(oes_vao_ext, &"createVertexArrayOES".into())
-            .expect("Create vao func")
-            .into();
-
-        Vao(
-            Reflect::apply(&create_vao_ext, oes_vao_ext, &js_sys::Array::new())
-                .expect("Created vao")
-                .into(),
-        )
-    }
+    // fn create_vao(&self) -> Vao {
+    //     let oes_vao_ext = &self.vao_ext.oes_vao_ext;
+    //
+    //     let create_vao_ext = Reflect::get(oes_vao_ext, &"createVertexArrayOES".into())
+    //         .expect("Create vao func")
+    //         .into();
+    //
+    //     Vao(
+    //         Reflect::apply(&create_vao_ext, oes_vao_ext, &js_sys::Array::new())
+    //             .expect("Created vao")
+    //             .into(),
+    //     )
+    // }
 
     pub fn get_assets(&self) -> &Assets {
         &self.assets
@@ -115,14 +101,14 @@ impl WebRenderer {
 
     fn prepare_for_render<'a>(
         &self,
-        gl: &WebGlRenderingContext,
+        gl: &WebGl2RenderingContext,
         renderable: &impl Render,
         shader_system: &ShaderSystem,
         key: &str,
     ) {
         if self.vao_ext.vaos.borrow().get(key).is_none() {
-            let vao = self.create_vao();
-            self.bind_vao(&vao);
+            let vao = gl.create_vertex_array();
+            gl.bind_vertex_array(vao.as_ref());
             let shader = shader_system.get_shader(&renderable.shader_kind()).unwrap();
             renderable.buffer_attributes(gl, &shader);
             self.vao_ext.vaos.borrow_mut().insert(key.to_string(), vao);
@@ -131,19 +117,19 @@ impl WebRenderer {
 
         let vaos = self.vao_ext.vaos.borrow();
         let vao = vaos.get(key).unwrap();
-        self.bind_vao(vao);
+        gl.bind_vertex_array(vao.as_ref());
     }
 
-    fn bind_vao(&self, vao: &Vao) {
-        let oes_vao_ext = &self.vao_ext.oes_vao_ext;
-
-        let bind_vao_ext = Reflect::get(&oes_vao_ext, &"bindVertexArrayOES".into())
-            .expect("Create vao func")
-            .into();
-
-        let args = js_sys::Array::new();
-        args.push(&vao.0);
-
-        Reflect::apply(&bind_vao_ext, oes_vao_ext, &args).expect("Bound VAO");
-    }
+    // fn bind_vao(&self, vao: &Vao) {
+    //     let oes_vao_ext = &self.vao_ext.oes_vao_ext;
+    //
+    //     let bind_vao_ext = Reflect::get(&oes_vao_ext, &"bindVertexArrayOES".into())
+    //         .expect("Create vao func")
+    //         .into();
+    //
+    //     let args = js_sys::Array::new();
+    //     args.push(&vao.0);
+    //
+    //     Reflect::apply(&bind_vao_ext, oes_vao_ext, &args).expect("Bound VAO");
+    // }
 }

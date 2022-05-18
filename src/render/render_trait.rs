@@ -3,7 +3,7 @@ use crate::shader::ShaderKind;
 use crate::{State, WebRenderer};
 use js_sys::WebAssembly;
 use wasm_bindgen::JsCast;
-use web_sys::WebGlRenderingContext as GL;
+use web_sys::WebGl2RenderingContext as GL;
 
 pub trait Render {
     fn shader_kind(&self) -> ShaderKind;

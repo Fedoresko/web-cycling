@@ -4,11 +4,11 @@ use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlImageElement;
-use web_sys::WebGlRenderingContext;
-use web_sys::WebGlRenderingContext as GL;
+use web_sys::WebGl2RenderingContext;
+use web_sys::WebGl2RenderingContext as GL;
 
 pub fn load_texture_image(
-    gl: Rc<WebGlRenderingContext>,
+    gl: Rc<WebGl2RenderingContext>,
     src: &str,
     texture_unit: TextureUnit,
     mipmap: bool,
@@ -33,7 +33,7 @@ pub fn load_texture_image(
         );
         gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, GL::LINEAR as i32);
 
-        gl.tex_image_2d_with_u32_and_u32_and_image(
+        gl.tex_image_2d_with_u32_and_u32_and_html_image_element(
             GL::TEXTURE_2D,
             0,
             GL::RGBA as i32,

@@ -8,7 +8,7 @@ use svg_load::path::RenderablePath;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 use web_sys::*;
-use web_sys::WebGlRenderingContext as GL;
+use web_sys::WebGl2RenderingContext as GL;
 
 use crate::animation::Animator;
 use crate::app::ui::drag::Draggable;
@@ -40,7 +40,7 @@ pub struct UI {
 
     pick_fbo: Option<WebGlFramebuffer>,
     renderer: Rc<WebRenderer>,
-    gl: WebGlRenderingContext,
+    gl: WebGl2RenderingContext,
 
     drag_elem: Option<usize>,
     start_drag_x: i32,
@@ -54,10 +54,10 @@ pub struct UI {
 impl UI {
     pub fn new(canvas: HtmlCanvasElement, renderer: Rc<WebRenderer>) -> UI {
         let result = JsValue::from_serde(&serde_json::json!({
-            "antialias": true,
+            "antialias": false,
         }));
-        let gl: WebGlRenderingContext = canvas
-            .get_context_with_context_options("webgl", &result.unwrap())
+        let gl: WebGl2RenderingContext = canvas
+            .get_context_with_context_options("webgl2", &result.unwrap())
             .ok()
             .unwrap()
             .unwrap()
@@ -104,7 +104,7 @@ impl UI {
 
     pub fn render_elements(
         &self,
-        gl: &WebGlRenderingContext,
+        gl: &WebGl2RenderingContext,
         state: &State,
         renderer: &WebRenderer,
     ) {
@@ -291,7 +291,7 @@ impl EventTarget for UI {
                     let target_id = pick.unwrap();
                     let mut consume;
 
-                    let mut handler_impact;
+                    let handler_impact;
                     {
                         let handle_bean = self.handle();
                         handler_impact = handle_bean.get_handler(target_id, *msg).map( | h| h(msg) );
