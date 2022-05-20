@@ -7,6 +7,7 @@ use crate::render::Render;
 use crate::shader::{Shader, ShaderKind};
 use crate::{State, WebRenderer};
 use crate::geom::Transform;
+use crate::text::RenderableString;
 
 pub trait RenderableElement {
     fn get_id(&self) -> usize;
@@ -22,6 +23,7 @@ pub trait RenderableElement {
     fn get_gradient_start(&self) -> (f32, f32);
     fn get_gradient_end(&self) -> (f32, f32);
     fn get_svg(&self) -> &Option<String>;
+    fn get_label(&self) -> &Option<RenderableString>;
     fn get_opacity(&self) -> f32;
 
     fn uniform(&self, gl: &WebGl2RenderingContext, shader: &Shader) {
@@ -31,27 +33,13 @@ pub trait RenderableElement {
 
         let w = gl.drawing_buffer_width() as f32;
         let h = gl.drawing_buffer_height() as f32;
-        // let sh_x = -w + 1.0;
-        // let sh_y = -h + 1.0;
-        //
         let pos = self.get_position();
         let sz = self.get_size();
 
-        let mut t = Transform::new_scale( sz.0 as f32 * 2.0 / w, sz.1 as f32 * 2.0 / h);
-        console::log_1(&format!("Pre {:?}", t).into());
-        t.translate( pos.0 as f32 * 2.0 /w - 1.0, pos.1 as f32 * 2.0 / h - 1.0);
-        console::log_1(&format!("new {:?}", t).into());
-        gl.uniform_matrix3fv_with_f32_array(transform_uni.as_ref(), false, &t.to_array());
+        let mut t = Transform::new_translate(  2.0 * pos.0 as f32 / w - 1.0 + 1.0/w, 2.0 * pos.1 as f32 / h - 1.0  + 1.0/h);
+        t.scale( sz.0 as f32 * 2.0 / w, sz.1 as f32 * 2.0 / h);
 
-        // gl.uniform4fv_with_f32_array(
-        //     pos_uni.as_ref(),
-        //     &[
-        //         ((pos.0 * 2) as f32 + sh_x) / w,
-        //         ((pos.1 * 2) as f32 + sh_y) / h,
-        //         (sz.0 * 2) as f32 / w,
-        //         (sz.1 * 2) as f32 / h,
-        //     ],
-        // );
+        gl.uniform_matrix3fv_with_f32_array(transform_uni.as_ref(), false, &t.to_array());
     }
 }
 
@@ -79,15 +67,23 @@ where
         let w = gl.drawing_buffer_width() as f32;
         let h = gl.drawing_buffer_height() as f32;
 
+        if let Some(label) = self.get_label() {
+            let opacity_uni = shader.get_uniform_location(gl, "opacity");
+            let pos = self.get_position();
+            label.pos.set(pos.clone());
+
+            gl.uniform1f(opacity_uni.as_ref(), self.get_opacity());
+            renderer.render_mesh(gl, state, &format!("label{}",self.get_id()), label);
+        }
+
         if let Some(svg) = self.get_svg() {
             let transform_uni = shader.get_uniform_location(gl, "transform");
             let opacity_uni = shader.get_uniform_location(gl, "opacity");
             let pos = self.get_position();
             let sz = self.get_size();
 
-            let mut t = Transform::new_scale( sz.0 as f32 * 2.0 / w, sz.1 as f32 * 2.0 / h);
-                //Transform::new_translate(pos.0 as f32 * 2.0 - 1.0, pos.1 as f32 * 2.0 - 1.0);
-            t.translate( pos.0 as f32 * 2.0 / w - 1.0, pos.1 as f32 * 2.0 / h - 1.0);
+            let mut t = Transform::new_translate(  2.0 * pos.0 as f32 / w - 1.0 + 1.0/w, 2.0 * pos.1 as f32 / h - 1.0  + 1.0/h);
+            t.scale( sz.0 as f32 * 2.0 / w, sz.1 as f32 * 2.0 / h);
             gl.uniform_matrix3fv_with_f32_array(transform_uni.as_ref(), false, &t.to_array());
             gl.uniform1f(opacity_uni.as_ref(), self.get_opacity());
 

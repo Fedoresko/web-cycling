@@ -123,7 +123,7 @@ impl Transform {
 
     #[inline]
     pub fn to_array(&self) -> [f32; 9] {
-        //[self.a, self.b, 0.0, self.c, self.d, 0.0, self.e, self.f, 1.0]
+        //[self.a, self.c,  self.e, self.b, self.d, self.f, 0.0, 0.0, 1.0]
         [self.a, self.b, 0.0, self.c, self.d, 0.0, self.e, self.f, 1.0]
     }
 }

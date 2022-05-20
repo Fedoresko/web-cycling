@@ -1,19 +1,21 @@
-use svg_load::font::{Font, Glyph};
+use std::cell::Cell;
+use svg_load::font::Glyph;
 use web_sys::{console, WebGl2RenderingContext};
-use crate::{Render, State, WebRenderer};
+use crate::{Render, State, Vec4, WebRenderer};
 use crate::shader::{Shader, ShaderKind};
 use web_sys::WebGl2RenderingContext as GL;
 use crate::geom::Transform;
 
-pub struct RenderableString<'a> {
+#[derive(Clone, Debug, Default)]
+pub struct RenderableString {
     pub string: String,
-    pub position: (i32, i32),
     pub font_size: f32,
-    pub color: [f32; 4],
-    pub font: &'a Font,
+    pub color: Vec4,
+    pub font: String,
+    pub pos: Cell<(i32, i32)>,
 }
 
-impl Render for RenderableString<'_> {
+impl Render for RenderableString {
     fn shader_kind(&self) -> ShaderKind {
         ShaderKind::UI
     }
@@ -37,7 +39,7 @@ impl Render for RenderableString<'_> {
         let h = gl.drawing_buffer_height() as f32;
 
         gl.uniform2fv_with_f32_array(resolution_uni.as_ref(), &[w, h]);
-        gl.uniform4fv_with_f32_array(color_uni.as_ref(), &self.color);
+        gl.uniform4fv_with_f32_array(color_uni.as_ref(), self.color.as_slice());
         gl.uniform2fv_with_f32_array(
             texrate_uni.as_ref(),
             &[state.width_rate(), state.height_rate()],
@@ -49,35 +51,26 @@ impl Render for RenderableString<'_> {
 
         let w = gl.drawing_buffer_width() as f32;
         let h = gl.drawing_buffer_height() as f32;
-        // let sh_x = -w + 1.0;
-        // let sh_y = -h + 1.0;
 
-        let mut pos = (self.position.0 as f32, self.position.1 as f32);
+        let mut pos = (self.pos.get().0 as f32, self.pos.get().1 as f32);
         for char in self.string.chars() {
-            if let Some(glyph) = self.font.glyph_map.get(&u32::from(char)) {
+            if let Some(glyph) = renderer.get_assets().get_font(self.font.as_str()).unwrap().glyph_map.get(&u32::from(char)) {
                 let bb_width = (glyph.bbox.2 - glyph.bbox.0) * self.font_size;
                 let scale_x = (bb_width.floor() + 1.0)/bb_width;
                 let lower_x = pos.0 + (glyph.bbox.0);
                 let trans_x = lower_x.floor() - lower_x;
                 let bb_height = (glyph.bbox.3) * self.font_size;
-                let scale_y = (bb_height.floor() + 1.0)/bb_height;
+                let mut iheight = bb_height.floor() as i32;
+                if iheight % 2 == 0 { iheight += 1; }
+                let scale_y = (iheight as f32)/bb_height;
 
-                let mut t = Transform::new_translate((pos.0 + trans_x) - w / 2.0, pos.1 + 0.5 - h / 2.0);
+                let mut t = Transform::new_translate(  2.0 * (pos.0 + trans_x) as f32 / w - 1.0, 2.0 * pos.1 as f32 / h - 1.0 );
                 t.scale( self.font_size * scale_x * 2.0 / w, self.font_size * scale_y * 2.0 / h);
                 gl.uniform_matrix3fv_with_f32_array(transform_uni.as_ref(), false, &t.to_array());
 
-                // gl.uniform4fv_with_f32_array(
-                //     pos_uni.as_ref(),
-                //     &[
-                //         ((pos.0 + trans_x) * 2.0 + sh_x) / w,
-                //         ((pos.1 + 0.5) * 2.0 + sh_y) / h,
-                //         self.font_size * scale_x * 2.0 / w,
-                //         self.font_size * scale_y * 2.0 / h,
-                //     ],
-                // );
                 pos.0 += glyph.advance*self.font_size;
 
-                renderer.render_mesh(gl,state,&format!("{}{}", &self.font.name,  char), glyph);
+                renderer.render_mesh(gl,state,&format!("{}{}", &self.font.as_str(),  char), glyph);
             }
         }
     }

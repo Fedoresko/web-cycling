@@ -11,31 +11,33 @@ crate-type = ["cdylib"]
 [dependencies]
 bincode = "=1.0.1"
 derivative = "2.2.0"
-blender-armature = ">=0.9.0"
-blender-mesh = ">=0.8.0"
+blender-armature = { path = "../landon/blender-armature" }
+blender-mesh = { path = "../landon/blender-mesh" }
 console_error_panic_hook = "=0.1.5"
 js-sys = ">=0.3.6"
 nalgebra = "=0.25.3"
-#wasm-bindgen = ">=0.2.40"
-wasm-bindgen-futures = "0.4.30"
+#wasm-bindgen = { version = ">=0.2.40", features = ["nightly"]}
+wasm-bindgen-futures = ">=0.4.30"
 serde_json = ">=1.0.7"
 serde = { version = "1.0.104", features = ["derive"] }
 lyon = { version=">=0.17.0", features = ["serialization"] }
 usvg = ">=0.15.0"
 svg-load = { path = "../svg-load" }
 brotli = ">=3.3.0"
+multimap = ">=0.8.3"
 
 [build-dependencies]
 bincode = "=1.0.1"
-blender-armature = ">=0.9.0"
-blender-mesh = ">=0.8.0"
-landon = "=0.10.2"
+blender-armature = { path = "../landon/blender-armature" }
+blender-mesh = { path = "../landon/blender-mesh" }
+landon = { path = "../landon" }
 svg-load = { path = "../svg-load" }
 brotli = ">=3.3.0"
 
 [dependencies.wasm-bindgen]
 version = "0.2.80"
 features = [
+  'nightly',
   'serde-serialize',
 ]
 
@@ -71,7 +73,12 @@ features = [
   'KeyboardEvent',
   'Screen',
   'console',
+  'BluetoothDevice',
+  'BluetoothRemoteGattService',
 ]
 
 [profile.release]
 lto = true
+
+[build]
+rustflags = ["--cfg", "web_sys_unstable_apis"]

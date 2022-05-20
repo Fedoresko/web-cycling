@@ -1,6 +1,8 @@
+use std::cell::Cell;
 use crate::app::ui::drag::DraggableElement;
 use crate::app::ui::render::RenderableElement;
 use crate::fields::{FieldSelector, Vec4};
+use crate::text::RenderableString;
 
 #[derive(Clone, Copy)]
 pub struct LineStyle {
@@ -18,7 +20,7 @@ pub struct ShapeSegment {
 }
 
 pub struct Element {
-    id: usize,
+    pub (super) id: usize,
     shape: Vec<ShapeSegment>,
     style: Option<LineStyle>,
     blur: bool,
@@ -36,6 +38,7 @@ pub struct Element {
     gradient_start: Option<(f32, f32)>,
     gradient_end: Option<(f32, f32)>,
     svg: Option<String>,
+    label: Option<RenderableString>,
 }
 
 pub struct ElemBuilder {
@@ -55,6 +58,7 @@ pub struct ElemBuilder {
     gradient_start: Option<(f32, f32)>,
     gradient_end: Option<(f32, f32)>,
     svg: Option<String>,
+    label: Option<RenderableString>,
 }
 
 impl Element  {
@@ -83,6 +87,8 @@ impl Element  {
             FieldSelector::GradientColors3(value) => { self.gradient_colors.as_mut().unwrap()[3] = value; }
             FieldSelector::GradientStart(value) => { self.gradient_start = Some( value ); }
             FieldSelector::GradientEnd(value) => { self.gradient_end = Some( value ); }
+            FieldSelector::LabelText(value) => { let s : String = value.iter().collect();  self.label.as_mut().unwrap().string = String::from(s.trim()); }
+            FieldSelector::LabelColor(value) => { self.label.as_mut().unwrap().color = value; }
         }
     }
 
@@ -124,7 +130,7 @@ impl ElemBuilder {
             shape: Vec::new(),
             style: None,
             blur: false,
-            bgcolor: Vec4::from([0.0, 0.0, 0.0, 0.0]),
+            bgcolor: Vec4::from([0.0, 0.0, 0.0, 1.0]),
             x,
             y,
             width: w,
@@ -136,6 +142,7 @@ impl ElemBuilder {
             gradient_pos: None,
             gradient_colors: None,
             svg: None,
+            label: None,
         }
     }
 
@@ -156,6 +163,16 @@ impl ElemBuilder {
         self
     }
 
+    pub fn with_label(&mut self, value: &str, font : &str, size: f32, color: Vec4) -> &mut Self  {
+        self.label = Some(RenderableString{
+            string : String::from(value),
+            font_size: size,
+            color,
+            font: String::from(font),
+            pos: Cell::new((0, 0)),
+        });
+        self
+    }
 
     pub fn with_line_style(&mut self, line_style: &LineStyle) -> &mut Self {
         self.style = Some(*line_style);
@@ -219,6 +236,7 @@ impl ElemBuilder {
             gradient_pos: self.gradient_pos.clone(),
             gradient_colors: self.gradient_colors.clone(),
             svg: self.svg.clone(),
+            label: self.label.clone(),
         };
         elem
     }
@@ -282,6 +300,10 @@ impl RenderableElement for Element {
 
     fn get_svg(&self) -> &Option<String> {
         &self.svg
+    }
+
+    fn get_label(&self) -> &Option<RenderableString> {
+        &self.label
     }
 
     fn get_opacity(&self) -> f32 {

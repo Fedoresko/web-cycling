@@ -1,5 +1,6 @@
 // Import our outputted wasm ES6 module
 // Which, export default's, an initialization function
+import { HRMDevice } from "./ble_devices.js";
 import { default as init, WebClient } from "./pkg/web_cycling.js";
 const rust = import('./pkg');
 

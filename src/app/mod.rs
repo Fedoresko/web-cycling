@@ -8,6 +8,8 @@ mod assets;
 pub use self::assets::*;
 
 pub mod ui;
+pub mod bluetooth;
+
 pub use self::ui::*;
 
 /// Used to instantiate our application

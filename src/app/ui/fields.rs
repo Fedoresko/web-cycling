@@ -22,6 +22,24 @@ pub enum FieldSelector {
     GradientColors3(Vec4),
     GradientStart((f32,f32)),
     GradientEnd((f32,f32)),
+    LabelText(SizedStr),
+    LabelColor(Vec4),
+}
+
+pub type SizedStr = [char; 256];
+
+pub trait Sizing<T>: Sized {
+    fn sizify(_:T) -> Self;
+}
+
+impl Sizing<&str> for SizedStr {
+    fn sizify(v: &str) -> Self {
+        let mut t : [char; 256] = [' '; 256];
+        for (k, ch) in v.chars().take(256).enumerate() {
+            t[k] = ch;
+        }
+        t
+    }
 }
 
 impl Display for FieldSelector {
@@ -50,11 +68,13 @@ impl Add for FieldSelector {
             FieldSelector::GradientColors3(v) => { if let FieldSelector::GradientColors3(other) = rhs { FieldSelector::GradientColors3(v + other) } else { panic!("wrong other type") } }
             FieldSelector::GradientStart(v) => { if let FieldSelector::GradientStart(other) = rhs { FieldSelector::GradientStart( (v.0 + other.0, v.1 + other.1) ) } else { panic!("wrong other type") } }
             FieldSelector::GradientEnd(v) => { if let FieldSelector::GradientEnd(other) = rhs { FieldSelector::GradientEnd((v.0 + other.0, v.1 + other.1)) } else { panic!("wrong other type") } }
+            FieldSelector::LabelColor(v) => { if let FieldSelector::LabelColor(other) = rhs { FieldSelector::LabelColor(v + other) } else { panic!("wrong other type") } }
+            FieldSelector::LabelText(v) => { panic!("cant add label text") }
         }
     }
 }
 
-impl Sub for FieldSelector {
+impl  Sub for FieldSelector {
     type Output = FieldSelector;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -74,11 +94,13 @@ impl Sub for FieldSelector {
             FieldSelector::GradientColors3(v) => { if let FieldSelector::GradientColors3(other) = rhs { FieldSelector::GradientColors3(v - other) } else { panic!("wrong other type") } }
             FieldSelector::GradientStart(v) => { if let FieldSelector::GradientStart(other) = rhs { FieldSelector::GradientStart((v.0 - other.0, v.1 - other.1)) } else { panic!("wrong other type") } }
             FieldSelector::GradientEnd(v) => { if let FieldSelector::GradientEnd(other) = rhs { FieldSelector::GradientEnd((v.0 - other.0, v.1 - other.1)) } else { panic!("wrong other type") } }
+            FieldSelector::LabelColor(v) => { if let FieldSelector::LabelColor(other) = rhs { FieldSelector::LabelColor(v - other) } else { panic!("wrong other type") } }
+            FieldSelector::LabelText(v) => { panic!("cant subtract label text") }
         }
     }
 }
 
-impl Mul<f64> for FieldSelector {
+impl  Mul<f64> for FieldSelector {
     type Output = FieldSelector;
 
     fn mul(self, rhs: f64) -> Self::Output {
@@ -98,6 +120,8 @@ impl Mul<f64> for FieldSelector {
             FieldSelector::GradientColors3(v) => { FieldSelector::GradientColors3(v * rhs) }
             FieldSelector::GradientStart(v) => { FieldSelector::GradientStart( (v.0 * rhs as f32, v.1 * rhs as f32) ) }
             FieldSelector::GradientEnd(v) => { FieldSelector::GradientEnd( (v.0 * rhs as f32, v.1 * rhs as f32) ) }
+            FieldSelector::LabelColor(v) => { FieldSelector::LabelColor(v * rhs) }
+            FieldSelector::LabelText(v) => { panic!("cant multiply label text") }
         }
     }
 }
@@ -105,6 +129,21 @@ impl Mul<f64> for FieldSelector {
 #[derive(Debug)]
 pub struct Vec4 {
     val : [f32; 4],
+}
+
+impl Vec4 {
+    pub fn as_slice(&self) -> &[f32] {
+        &self.val[..]
+    }
+}
+
+
+impl Default for Vec4 {
+    fn default() -> Self {
+        Vec4 {
+            val: [0.0,0.0,0.0,0.0]
+        }
+    }
 }
 
 impl From<[f32; 4]> for Vec4 {

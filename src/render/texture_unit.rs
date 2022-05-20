@@ -4,16 +4,16 @@ use web_sys::WebGl2RenderingContext as GL;
 #[derive(Clone, Copy)]
 pub enum TextureUnit {
     Velodrome = 1,
-    Stone = 2,
-    NormalMap = 3,
-    Stad = 4,
+    Stad = 2,
+    NormalMap = 4,
+    VelodromeFlat = 3,
 }
 
 impl fmt::Display for TextureUnit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let x = match self {
             TextureUnit::Velodrome => "Velodrome",
-            TextureUnit::Stone => "Stone",
+            TextureUnit::VelodromeFlat => "VelodromeFlat",
             TextureUnit::NormalMap => "NormalMap",
             TextureUnit::Stad => "Stad",
         };
@@ -27,9 +27,9 @@ impl TextureUnit {
     pub fn TEXTURE_N(&self) -> u32 {
         match self {
             TextureUnit::Velodrome => GL::TEXTURE1,
-            TextureUnit::Stone => GL::TEXTURE2,
-            TextureUnit::NormalMap => GL::TEXTURE3,
-            TextureUnit::Stad => GL::TEXTURE4,
+            TextureUnit::Stad => GL::TEXTURE2,
+            TextureUnit::NormalMap => GL::TEXTURE4,
+            TextureUnit::VelodromeFlat => GL::TEXTURE3,
         }
     }
 

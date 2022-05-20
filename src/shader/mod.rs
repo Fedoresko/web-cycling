@@ -18,6 +18,9 @@ static MESH_SKINNED_FS: &'static str = include_str!("./mesh-skinned-fragment.gls
 static MESH_NON_SKINNED_VS: &'static str = include_str!("./mesh-non-skinned-vertex.glsl");
 static MESH_NON_SKINNED_FS: &'static str = include_str!("./mesh-non-skinned-fragment.glsl");
 
+static MESH_NO_TEXTURE_VS: &'static str = include_str!("./mesh-no-texture-vertex.glsl");
+static MESH_NO_TEXTURE_FS: &'static str = include_str!("./mesh-no-texture-fragment.glsl");
+
 static WATER_VS: &'static str = include_str!("./water-vertex.glsl");
 static WATER_FS: &'static str = include_str!("./water-fragment.glsl");
 
@@ -35,6 +38,8 @@ impl ShaderSystem {
         let water_shader = Shader::new(&gl, WATER_VS, WATER_FS).unwrap();
         let non_skinned_shader =
             Shader::new(&gl, MESH_NON_SKINNED_VS, MESH_NON_SKINNED_FS).unwrap();
+        let non_texture_shader =
+            Shader::new(&gl, MESH_NO_TEXTURE_VS, MESH_NO_TEXTURE_FS).unwrap();
         let skinned_mesh_shader = Shader::new(&gl, MESH_SKINNED_VS, MESH_SKINNED_FS).unwrap();
         let textured_quad_shader = Shader::new(&gl, TEXTURED_QUAD_VS, TEXTURED_QUAD_FS).unwrap();
         let ui_shader = Shader::new(&gl, UI_VS, UI_FS).unwrap();
@@ -49,6 +54,7 @@ impl ShaderSystem {
         programs.insert(ShaderKind::TexturedQuad, textured_quad_shader);
         programs.insert(ShaderKind::UI, ui_shader);
         programs.insert(ShaderKind::UIPicking, ui_pick_shader);
+        programs.insert(ShaderKind::NoTextureMesh, non_texture_shader);
 
         ShaderSystem {
             programs,
@@ -82,6 +88,7 @@ pub enum ShaderKind {
     TexturedQuad,
     UI,
     UIPicking,
+    NoTextureMesh,
 }
 
 /// One per ShaderKind

@@ -1,4 +1,5 @@
-use blender_mesh::SingleIndexedVertexAttributes;
+use blender_mesh::{BlenderMesh, SingleIndexedVertexAttributes};
+use blender_mesh::MaterialInput::Uniform;
 use nalgebra;
 use nalgebra::{Isometry3, Matrix4, Vector3};
 use web_sys::*;
@@ -9,12 +10,14 @@ use crate::render::Render;
 use crate::render::TextureUnit;
 use crate::shader::Shader;
 use crate::shader::ShaderKind;
+use crate::shader::ShaderKind::NoTextureMesh;
 use crate::WebRenderer;
 
 pub struct NonSkinnedMesh<'a> {
     pub mesh: &'a SingleIndexedVertexAttributes,
+    pub full_mesh: &'a BlenderMesh,
     pub opts: &'a MeshRenderOpts,
-    pub texture: &'a TextureUnit,
+    pub texture: Option<&'a TextureUnit>,
 }
 
 pub struct MeshRenderOpts {
@@ -24,19 +27,24 @@ pub struct MeshRenderOpts {
 
 impl Render for NonSkinnedMesh<'_> {
     fn shader_kind(&self) -> ShaderKind {
-        ShaderKind::NonSkinnedMesh
+        if self.texture.is_some() { ShaderKind::NonSkinnedMesh } else { NoTextureMesh }
     }
 
     fn buffer_attributes(&self, gl: &WebGl2RenderingContext, shader: &Shader) {
         let mesh = self.mesh;
+        let full_mesh = self.full_mesh;
 
         let pos_attrib = gl.get_attrib_location(&shader.program, "position");
         let normal_attrib = gl.get_attrib_location(&shader.program, "normal");
         let uv_attrib = gl.get_attrib_location(&shader.program, "uvs");
+        let color_attrib = gl.get_attrib_location(&shader.program, "color");
 
         gl.enable_vertex_attrib_array(pos_attrib as u32);
         gl.enable_vertex_attrib_array(normal_attrib as u32);
-        gl.enable_vertex_attrib_array(uv_attrib as u32);
+        gl.enable_vertex_attrib_array(color_attrib as u32);
+        if self.texture.is_some() {
+            gl.enable_vertex_attrib_array(uv_attrib as u32);
+        }
 
         //let verices = mesh.combine_vertex_indices(&CreateSingleIndexConfig { bone_influences_per_vertex: None, calculate_face_tangents: false });
         // mesh.multi_indexed_vertex_attributes.
@@ -61,15 +69,27 @@ impl Render for NonSkinnedMesh<'_> {
             normal_attrib as u32,
             3,
         );
+        if self.texture.is_some() {
+            NonSkinnedMesh::buffer_f32_data(
+                &gl,
+                &mesh
+                    .vertices()
+                    .into_iter()
+                    .flat_map(|v| v.uv().unwrap())
+                    .collect::<Vec<f32>>(), // &mesh.vertex_uvs.as_ref().expect("Mesh uvs")[..],
+                uv_attrib as u32,
+                2,
+            );
+        }
         NonSkinnedMesh::buffer_f32_data(
             &gl,
             &mesh
                 .vertices()
                 .into_iter()
-                .flat_map(|v| v.uv().unwrap())
-                .collect::<Vec<f32>>(), // &mesh.vertex_uvs.as_ref().expect("Mesh uvs")[..],
-            uv_attrib as u32,
-            2,
+                .flat_map(|v| if let Uniform(color) = full_mesh.materials_vec().get(v.material_index() as usize).unwrap().base_color() { *color } else { [0.0,0.0,0.0] } )
+                .collect::<Vec<f32>>(),
+            color_attrib as u32,
+            3,
         );
         NonSkinnedMesh::buffer_u16_indices(&gl, mesh.indices());
     }
@@ -84,7 +104,10 @@ impl Render for NonSkinnedMesh<'_> {
         let camera_pos_uni = shader.get_uniform_location(gl, "cameraPos");
         let perspective_uni = shader.get_uniform_location(gl, "perspective");
         //let clip_plane_uni = shader.get_uniform_location(gl, "clipPlane");
-        let mesh_texture_uni = shader.get_uniform_location(gl, "meshTexture");
+        if let Some(texture) = self.texture {
+            let mesh_texture_uni = shader.get_uniform_location(gl, "meshTexture");
+            gl.uniform1i(mesh_texture_uni.as_ref(), texture.texture_unit());
+        }
 
         //gl.uniform4fv_with_f32_array(clip_plane_uni.as_ref(), &mut opts.clip_plane.clone()[..]);
 
@@ -114,7 +137,6 @@ impl Render for NonSkinnedMesh<'_> {
         let mut camera_pos = [camera_pos.x, camera_pos.y, camera_pos.z];
         gl.uniform3fv_with_f32_array(camera_pos_uni.as_ref(), &mut camera_pos);
 
-        gl.uniform1i(mesh_texture_uni.as_ref(), self.texture.texture_unit());
 
         let mut perspective = state.camera().projection();
         gl.uniform_matrix4fv_with_f32_array(perspective_uni.as_ref(), false, &mut perspective);

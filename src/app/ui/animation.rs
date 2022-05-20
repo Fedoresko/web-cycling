@@ -16,6 +16,11 @@ pub struct CompositeAnimation {
     pub animations: Vec<Box<dyn Animator>>,
 }
 
+pub struct AnimationSequence {
+    pub animations: Vec<Box<dyn Animator>>,
+    pub repeat: bool,
+}
+
 pub trait Animator {
     fn animate(&mut self) -> Vec<FieldSelector>;
     fn get_target(&self) -> usize;
@@ -48,6 +53,20 @@ impl Animation {
             started: Date::now(),
             act: Box::new(|pg, from, to| from + (to - from) * (1.0 - (pg * 2.0 - 1.0).abs())),
         }
+    }
+}
+
+impl Animator for AnimationSequence {
+    fn animate(&mut self) -> Vec<FieldSelector> {
+        todo!()
+    }
+
+    fn get_target(&self) -> usize {
+        self.animations.get(0).unwrap().get_target()
+    }
+
+    fn is_finished(&self) -> bool {
+        todo!()
     }
 }
 

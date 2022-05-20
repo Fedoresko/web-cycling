@@ -5,6 +5,7 @@ use web_sys::console;
 use crate::animation::Animator;
 use crate::element::{ElemBuilder, Element};
 use derivative::Derivative;
+use multimap::MultiMap;
 use crate::FieldSelector;
 
 #[allow(dead_code)]
@@ -108,7 +109,7 @@ pub(super) struct StoredAnimation {
 pub(super) struct HandlersBean {
     pub(super) elements: Vec<RefCell<Element>>,
     pub(super) animations: RefCell<Vec<StoredAnimation>>,
-    dep_links: HashMap<usize, (usize, MappingFunction)>,
+    dep_links: MultiMap<usize, (usize, MappingFunction)>,
     elem_handlers: HashMap<EvtKey, HandlerCallback>,
 }
 
@@ -118,7 +119,7 @@ impl Default for HandlersBean {
             animations: RefCell::new(Vec::new()),
             elem_handlers: HashMap::new(),
             elements: Vec::new(),
-            dep_links: HashMap::new(),
+            dep_links: MultiMap::new(),
         }
     }
 }
@@ -129,7 +130,7 @@ impl HandlersBean {
             animations: RefCell::new(Vec::new()),
             elem_handlers: HashMap::new(),
             elements: vec![RefCell::new(ElemBuilder::new(0, 0, w, h).build())],
-            dep_links: HashMap::new(),
+            dep_links: MultiMap::new(),
         }
     }
 
@@ -163,7 +164,7 @@ impl HandlersBean {
 
     fn collect_children(&self, id : usize) -> Vec<usize> {
         let mut res = Vec::new();
-        for child in self.elements.get(id).unwrap().borrow().children() {
+        for child in self.elements.get( self.get_elem_pos(id)).unwrap().borrow().children() {
             res.push(*child);
             res.extend(self.collect_children(*child).iter());
         };
@@ -185,6 +186,10 @@ impl HandlersBean {
 
     pub(super) fn add_bind(&mut self, source_id: usize, target_id: usize, map_fn: MappingFunction) {
         self.dep_links.insert(source_id, (target_id, map_fn));
+        console::log_1(&"After bind".into());
+        let arr : Vec<String> = self.dep_links.iter_all().map(|e| format!("{} to {}",e.0, e.1.len())).collect();
+        let s = "dep_links [".to_owned()+arr.join(", ").as_str()+"]";
+        console::log_1(&s.into());
     }
 
     pub(super) fn start_animation(&self, a: Box<dyn Animator>, on_finish: Option<HandlerCallback>) {
@@ -215,6 +220,16 @@ impl HandlersBean {
     }
 
     pub(super) fn remove_element(&mut self, target_id: usize) {
+        console::log_1(&"Before removal".into());
+        let arr : Vec<String> = self.dep_links.iter_all().map(|e| format!("{} to {}",e.0, e.1.len())).collect();
+        let s = "dep_links [".to_owned()+arr.join(", ").as_str()+"]";
+        console::log_1(&s.into());
+
+        let arr : Vec<String> = self.elements.iter().map(|e| format!("elem: {} children {:?}",e.borrow().get_id(), e.borrow().children() )).collect();
+        let s = "elements [".to_owned()+arr.join(", ").as_str()+"]";
+        console::log_1(&s.into());
+
+
         let mut to_remove = HashSet::new();
         to_remove.insert(target_id);
         to_remove.extend(self.collect_children(target_id));
@@ -248,23 +263,55 @@ impl HandlersBean {
             let t = element.borrow().children().iter().map(|e| *move_ref.get(e).unwrap_or(e) ).collect();
             element.borrow_mut().children_elems = t;
         }
+
+        // for mut dlink in &mut self.dep_links {
+        //     let t = &mut dlink.1.0;
+        //     if let Some(to) = move_ref.get(t) {
+        //         *t = *to;
+        //     }
+        // }
+
+        console::log_1(&"After removal".into());
+        let arr : Vec<String> = self.dep_links.iter_all().map(|e| format!("{} to {}",e.0, e.1.len())).collect();
+        let s = "dep_links [".to_owned()+arr.join(", ").as_str()+"]";
+        console::log_1(&s.into());
+
+        let arr : Vec<String> = self.elements.iter().map(|e| format!("elem: {} children {:?}",e.borrow().get_id(), e.borrow().children() )).collect();
+        let s = "elements [".to_owned()+arr.join(", ").as_str()+"]";
+        console::log_1(&s.into());
+
     }
 
     pub(super) fn set(&self, target_id: usize, value: &FieldSelector) {
-        self.elements[target_id].borrow_mut().set(*value);
+        let id = self.get_elem_pos(target_id);
+
+        self.elements[id].borrow_mut().set(*value);
         let mut notif_stack = Vec::new();
         notif_stack.push((target_id, value.clone()));
 
         while !notif_stack.is_empty() {
             let (next, val) = notif_stack.pop().unwrap();
-            self.elements[next].borrow_mut().set(val);
-            for (id, func) in self.dep_links.get(&next) {
-                let res = func(&val);
-                if res.is_some() {
-                    let val = res.unwrap().clone();
-                    notif_stack.push((*id, val))
+            let pos = self.get_elem_pos(next);
+            self.elements[pos].borrow_mut().set(val);
+            if let Some(links) = self.dep_links.get_vec(&next) {
+                for (id, func) in links {
+                    let res = func(&val);
+                    if res.is_some() {
+                        let val = res.unwrap().clone();
+                        notif_stack.push((*id, val))
+                    }
                 }
             }
         }
+    }
+
+    fn get_elem_pos(&self, target_id: usize) -> usize {
+        let mut id = target_id;
+        for (k, e) in self.elements.iter().enumerate() {
+            if e.borrow().get_id() == target_id {
+                id = k;
+            }
+        }
+        id
     }
 }

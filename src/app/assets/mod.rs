@@ -6,10 +6,12 @@ use std::collections::HashMap;
 use std::io::Read;
 use svg_load::font::Font;
 use svg_load::path::RenderablePath;
+use web_sys::console;
 
 #[derive(Default)]
 pub struct Assets {
     meshes: HashMap<String, SingleIndexedVertexAttributes>,
+    bmeshes: HashMap<String, BlenderMesh>,
     images: HashMap<String, Vec<RenderablePath>>,
     fonts: HashMap<String, Font>,
 //    armatures: HashMap<String, BlenderArmature>,
@@ -17,45 +19,27 @@ pub struct Assets {
 
 impl Assets {
     pub fn new() -> Assets {
-        let meshes = Assets::download_meshes();
+        let bmeshes = include_bytes!("../../../meshes.bytes");
+        let mut bmeshes: HashMap<String, BlenderMesh> = bincode::deserialize(bmeshes).unwrap();
+
+        let meshes = Assets::download_meshes(&mut bmeshes);
         let images = Assets::download_images();
         let fonts = Assets::download_fonts();
 //        let armatures = Assets::download_armatures();
 
-        Assets { meshes, images, fonts }
+        Assets { bmeshes, meshes, images, fonts }
     }
 
     fn download_images() -> HashMap<String, Vec<RenderablePath>> {
         let images = include_bytes!("../../../svgs.bytes");
         let images: HashMap<String, Vec<RenderablePath>> = bincode::deserialize(images).unwrap();
 
-        for (font_name, font) in &images {
-            web_sys::console::log_1(&format!("Loaded image... {}", font_name).into());
-
-
-            for path in font {
-                if path.gradient_stops > 0 {
-                    web_sys::console::log_1(&format!("path gradient stops {} start: {}, {}; end {}, {}", path.gradient_stops, path.gradient_start.unwrap().0,
-                                                     path.gradient_start.unwrap().1, path.gradient_end.unwrap().0, path.gradient_end.unwrap().1).into());
-                }
-                web_sys::console::log_1(&format!("ver {} ind {}", path.vertices.vertices.len(), path.vertices.indices.len()).into());
-
-                let mut s = String::from("Points: ");
-                for v in &path.vertices.vertices {
-                    s += &format!("{:?}, ", v.position);
-                }
-                web_sys::console::log_1(&s.into());
-
-                let mut s = String::from("Indxs: ");
-                let mut max = 0;
-                for v in &path.vertices.indices {
-                    if *v > max {max = *v};
-                    s += &format!("{:?}, ", v);
-                }
-
-
+        for (nm, img) in &images {
+            console::log_1(&format!("Loading svg {}", nm.as_str()).into());
+            for path in img {
+                console::log_1(&format!("Path svg {:?}, {}, {}", path.size, path.vertices.vertices.len(), path.vertices.indices.len()).into());
             }
-        };
+        }
 
         images
     }
@@ -71,20 +55,32 @@ impl Assets {
 
     // In a real application you would download via XHR or fetch request, but here we just
     // included_bytes! for simplicity
-    fn download_meshes() -> HashMap<String, SingleIndexedVertexAttributes> {
-        let meshes = include_bytes!("../../../meshes.bytes");
-        let mut meshes: HashMap<String, BlenderMesh> = bincode::deserialize(meshes).unwrap();
+    fn download_meshes(meshes: &mut HashMap<String, BlenderMesh>) -> HashMap<String, SingleIndexedVertexAttributes> {
         let mut res: HashMap<String, SingleIndexedVertexAttributes> = HashMap::new();
 
         for (mesh_name, mesh) in meshes.iter_mut() {
-            web_sys::console::log_1(&mesh_name.to_string().into());
+            console::log_1(&mesh_name.to_string().into());
 
-            let arm_name = mesh.armature_name();
-            if arm_name.is_none() {
-                mesh.y_up();
-            }
+          //  let arm_name = mesh.armature_name();
+//            if arm_name.is_none() {
+                //mesh.y_up();
+                //console::log_1(&"doing y-up".into());
+  //          }
 
-            let attrs = mesh.combine_vertex_indices(&CreateSingleIndexConfig::default());
+            let attrs = mesh.combine_vertex_indices(&CreateSingleIndexConfig {
+                bone_influences_per_vertex: None,
+                calculate_face_tangents: true,
+            });
+
+
+            // let mut sb = String::new();
+            // sb += "[";
+            // for v in attrs.vertices() {
+            //     sb += &format!("pos: {:?}, uv: {:?}, norm {:?}", v.position(), v.uv(), v.normal());
+            // }
+            // sb+="]";
+            // web_sys::console::log_1(&sb.into());
+
             res.insert(mesh_name.clone(), attrs);
         }
 
@@ -111,6 +107,10 @@ impl Assets {
 
     pub fn get_mesh(&self, mesh_name: &str) -> Option<&SingleIndexedVertexAttributes> {
         self.meshes.get(mesh_name)
+    }
+    
+    pub fn get_full_mesh(&self, mesh_name: &str) -> Option<&BlenderMesh> {
+        self.bmeshes.get(mesh_name)
     }
 
     pub fn get_image(&self, image_name: &str) -> Option<&Vec<RenderablePath>> {

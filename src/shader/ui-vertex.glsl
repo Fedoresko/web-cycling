@@ -12,7 +12,8 @@ varying vec2 pos2d;
 
 void main() {
     pos2d = position.xy;
-    vec3 pos = position*transform;
+    vec3 pos = vec3(transform*vec3(pos2d, 1.0));
+    pos.z = position.z;
 
     uv = ((vec2(pos.x, pos.y) + 1.0)/2.0)*tex_rate;
     gl_Position = vec4(pos, 1.0);

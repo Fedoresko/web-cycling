@@ -60,6 +60,7 @@ fn main() {
     let mut images = HashMap::new();
     images.insert("test.svg", load_svg(r"./amc.svg"));
     images.insert("HR", load_svg(r"./heart1.svg"));
+    images.insert("HRM", load_svg(r"./heart.svg"));
     let svg = bincode::serialize(&images).unwrap();
     let mut f = File::create("./svgs.bytes").unwrap();
     f.write_all(&svg[..]).unwrap();

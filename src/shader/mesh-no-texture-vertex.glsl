@@ -1,9 +1,6 @@
 attribute vec3 position;
 attribute vec3 normal;
-attribute vec4 color;
-
-attribute vec2 uvs;
-varying vec2 vUvs;
+attribute vec3 color;
 
 uniform mat4 model;
 uniform mat4 view;
@@ -27,6 +24,5 @@ void main (void) {
   vWorldPos = worldPosition.xyz;
   fromFragmentToCamera = cameraPos - worldPosition.xyz;
 
-  vUvs = uvs;
-  aColor = color;
+  aColor = vec4(color, 1.0);
 }

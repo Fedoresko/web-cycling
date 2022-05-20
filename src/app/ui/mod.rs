@@ -12,7 +12,7 @@ use web_sys::WebGl2RenderingContext as GL;
 
 use crate::animation::Animator;
 use crate::app::ui::drag::Draggable;
-use crate::{EventTarget, FieldSelector};
+use crate::{EventTarget, FieldSelector, HRM};
 use crate::messaging::HandlerCallback;
 use crate::messaging::HandlersBean;
 use crate::messaging::Msg;
@@ -326,6 +326,9 @@ impl EventTarget for UI {
             Msg::KeyDown(key_code) => {
                 if *key_code == 32 { //Spacebar
                     self.toggle_fullscreen();
+                } else if *key_code == 67 { //'C'
+                    let hrm = HRM::new(|js| {}, |js| {});
+                    hrm.reconnect_hrm();
                 }
                 false
             }

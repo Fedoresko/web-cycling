@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use js_sys::Reflect;
 use web_sys::*;
 use web_sys::WebGl2RenderingContext as GL;
 
@@ -58,25 +57,104 @@ impl WebRenderer {
             return;
         }
 
+
         // let mut meshes : HashMap<&str, &dyn Render> = HashMap::new();
         let mesh_opts = MeshRenderOpts {
-            pos: (0., 10., -10.),
+            pos: (0.0, 0.0, 0.0),
             flip_camera_y: false,
         };
 
-        // let mesh_name = "Sphere";
-        // let sphere = NonSkinnedMesh {
-        //     mesh: assets.get_mesh(mesh_name).expect("Sphere mesh"),
-        //     opts: &mesh_opts,
-        //     texture: &TextureUnit::Stone,
+        let mesh_name = "Goose";
+        let sphere = NonSkinnedMesh {
+            mesh: self.assets.get_mesh(mesh_name).expect("Goose mesh"),
+            opts: &mesh_opts,
+            full_mesh: self.assets.get_full_mesh(mesh_name).expect("Goose mesh"),
+            texture: None,
+        };
+
+        // let mesh_opts = MeshRenderOpts {
+        //     pos: (3.0, 2.0, 0.0),
+        //     flip_camera_y: false,
         // };
-        // self.render_mesh(gl, state, mesh_name, &sphere);
+        self.render_mesh(gl, state, mesh_name, &sphere);
+        let mesh_name = "BMXBody";
+        let sphere = NonSkinnedMesh {
+            mesh: self.assets.get_mesh(mesh_name).expect("BMX Body mesh"),
+            opts: &mesh_opts,
+            full_mesh: self.assets.get_full_mesh(mesh_name).expect("Goose mesh"),
+            texture: None,
+        };
+        self.render_mesh(gl, state, mesh_name, &sphere);
+        let mesh_name = "BMXHandle";
+        let sphere = NonSkinnedMesh {
+            mesh: self.assets.get_mesh(mesh_name).expect("BMX Handle mesh"),
+            opts: &mesh_opts,
+            full_mesh: self.assets.get_full_mesh(mesh_name).expect("Goose mesh"),
+            texture: None,
+        };
+        self.render_mesh(gl, state, mesh_name, &sphere);
+        let mesh_name = "BMXFrontWheel";
+        let sphere = NonSkinnedMesh {
+            mesh: self.assets.get_mesh(mesh_name).expect("BMX Front Wheel mesh"),
+            opts: &mesh_opts,
+            full_mesh: self.assets.get_full_mesh(mesh_name).expect("Goose mesh"),
+            texture: None,
+        };
+        self.render_mesh(gl, state, mesh_name, &sphere);
+        let mesh_name = "BMXRearWheel";
+        let sphere = NonSkinnedMesh {
+            mesh: self.assets.get_mesh(mesh_name).expect("BMX Rear Wheel mesh"),
+            opts: &mesh_opts,
+            full_mesh: self.assets.get_full_mesh(mesh_name).expect("Goose mesh"),
+            texture: None,
+        };
+        self.render_mesh(gl, state, mesh_name, &sphere);
+        let mesh_name = "BMXPedals";
+        let sphere = NonSkinnedMesh {
+            mesh: self.assets.get_mesh(mesh_name).expect("BMX Pedals mesh"),
+            opts: &mesh_opts,
+            full_mesh: self.assets.get_full_mesh(mesh_name).expect("Goose mesh"),
+            texture: None,
+        };
+        self.render_mesh(gl, state, mesh_name, &sphere);
+
+
+        // let mesh_opts = MeshRenderOpts {
+        //     pos: (0., 10., 50.),
+        //     flip_camera_y: false,
+        // };
+
+
+        let mesh_name = "Sphere";
+        let sphere = NonSkinnedMesh {
+            mesh: self.assets.get_mesh(mesh_name).expect("Sphere mesh"),
+            opts: &mesh_opts,
+            full_mesh: self.assets.get_full_mesh(mesh_name).expect("Sphere mesh"),
+            texture: Some(&TextureUnit::Stad),
+        };
+        self.render_mesh(gl, state, mesh_name, &sphere);
+
+        // let mut meshes : HashMap<&str, &dyn Render> = HashMap::new();
+        // let mesh_opts = MeshRenderOpts {
+        //     pos: (0., 10., -10.),
+        //     flip_camera_y: false,
+        // };
 
         let mesh_name = "Velodrome";
         let velodrome = NonSkinnedMesh {
             mesh: self.assets.get_mesh(mesh_name).expect("Velodrome mesh"),
             opts: &mesh_opts,
-            texture: &TextureUnit::Velodrome,
+            full_mesh: self.assets.get_full_mesh(mesh_name).expect("Velodrome mesh"),
+            texture: Some(&TextureUnit::Velodrome),
+        };
+        self.render_mesh(gl, state, mesh_name, &velodrome);
+
+        let mesh_name = "VelodromeFlat";
+        let velodrome = NonSkinnedMesh {
+            mesh: self.assets.get_mesh(mesh_name).expect("Velodrome flat"),
+            opts: &mesh_opts,
+            full_mesh: self.assets.get_full_mesh(mesh_name).expect("Velodrome flat"),
+            texture: Some(&TextureUnit::VelodromeFlat),
         };
         self.render_mesh(gl, state, mesh_name, &velodrome);
     }
