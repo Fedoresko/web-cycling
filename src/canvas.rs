@@ -9,7 +9,8 @@ use web_sys::*;
 use web_sys::WebGl2RenderingContext as GL;
 
 use crate::messaging::Msg;
-use crate::{EventTarget, WebEventDispatcher};
+use crate::WebEventDispatcher;
+use crate::app::ui::messaging::EventTarget;
 
 pub static APP_DIV_ID: &'static str = "web-cycling";
 

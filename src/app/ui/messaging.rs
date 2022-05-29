@@ -6,7 +6,8 @@ use crate::animation::Animator;
 use crate::element::{ElemBuilder, Element};
 use derivative::Derivative;
 use multimap::MultiMap;
-use crate::FieldSelector;
+use crate::{FieldSelector, WebEventDispatcher};
+use crate::components::{Component, UserEvent};
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Derivative)]
@@ -75,7 +76,7 @@ struct EvtKey {
 
 pub type HandlerCallback = Box<dyn Fn(&Msg) -> HandlerImpact + 'static>;
 //pub type HandlerCallbackMut = RefCell<Box<dyn Fn(&Msg) -> HandlerImpact + 'static>>;
-pub type MappingFunction = Box<dyn Fn(&FieldSelector) -> Option<FieldSelector>>;
+pub type MappingFunction = Box<dyn Fn(&FieldSelector) -> Option<Vec<FieldSelector>>>;
 
 /// This is an interface to process
 
@@ -101,16 +102,18 @@ pub enum HandlerImpact<'a> {
 //     fn set(&self, target_id :usize, value: &FieldSelector);
 // }
 
-pub(super) struct StoredAnimation {
+pub struct StoredAnimation {
     pub(super) animator: Box<dyn Animator>,
     pub(super) on_finish: Option<HandlerCallback>,
 }
 
-pub(super) struct HandlersBean {
+pub struct HandlersBean {
     pub(super) elements: Vec<RefCell<Element>>,
     pub(super) animations: RefCell<Vec<StoredAnimation>>,
     dep_links: MultiMap<usize, (usize, MappingFunction)>,
     elem_handlers: HashMap<EvtKey, HandlerCallback>,
+    pub(super) components: Vec<RefCell<Box<dyn Component>>>,
+    event_queue: Vec<UserEvent>,
 }
 
 impl Default for HandlersBean {
@@ -120,6 +123,8 @@ impl Default for HandlersBean {
             elem_handlers: HashMap::new(),
             elements: Vec::new(),
             dep_links: MultiMap::new(),
+            components: Vec::new(),
+            event_queue: Vec::new(),
         }
     }
 }
@@ -131,6 +136,8 @@ impl HandlersBean {
             elem_handlers: HashMap::new(),
             elements: vec![RefCell::new(ElemBuilder::new(0, 0, w, h).build())],
             dep_links: MultiMap::new(),
+            components: Vec::new(),
+            event_queue: Vec::new(),
         }
     }
 
@@ -158,7 +165,7 @@ impl HandlersBean {
         });
     }
 
-    pub(super) fn get_handler(&self, target_id : usize, message_type: Msg) -> Option<&HandlerCallback> {
+    pub fn get_handler(&self, target_id : usize, message_type: Msg) -> Option<&HandlerCallback> {
         self.elem_handlers.get(&EvtKey { target_id, message_type })
     }
 
@@ -184,7 +191,7 @@ impl HandlersBean {
         }
     }
 
-    pub(super) fn add_bind(&mut self, source_id: usize, target_id: usize, map_fn: MappingFunction) {
+    pub fn add_bind(&mut self, source_id: usize, target_id: usize, map_fn: MappingFunction) {
         self.dep_links.insert(source_id, (target_id, map_fn));
         console::log_1(&"After bind".into());
         let arr : Vec<String> = self.dep_links.iter_all().map(|e| format!("{} to {}",e.0, e.1.len())).collect();
@@ -192,7 +199,7 @@ impl HandlersBean {
         console::log_1(&s.into());
     }
 
-    pub(super) fn start_animation(&self, a: Box<dyn Animator>, on_finish: Option<HandlerCallback>) {
+    pub fn start_animation(&self, a: Box<dyn Animator>, on_finish: Option<HandlerCallback>) {
         console::log_1(&format!("Starting animation").into());
         self.animations.borrow_mut().push(StoredAnimation{
             animator: a,
@@ -200,16 +207,16 @@ impl HandlersBean {
         });
     }
 
-    pub(super) fn register_handler(&mut self, target_id: usize, message_type: Msg, callback: HandlerCallback) {
+    pub fn register_handler(&mut self, target_id: usize, message_type: Msg, callback: HandlerCallback) {
         console::log_1(&format!("Registered handler {} {}", target_id, message_type).into());
         self.elem_handlers.insert(EvtKey { target_id, message_type }, callback);
     }
 
-    pub(super) fn remove_handler(&mut self, target_id: usize, message_type: Msg) {
+    pub fn remove_handler(&mut self, target_id: usize, message_type: Msg) {
         self.elem_handlers.remove(&EvtKey { target_id, message_type });
     }
 
-    pub(super) fn add_element(&mut self, elem: Element, parent_id: usize)  -> Option<usize> {
+    pub fn add_element(&mut self, elem: Element, parent_id: usize)  -> Option<usize> {
         let mut element = elem;
         let pos = self.elements.len();
         element.set_id(pos);
@@ -219,7 +226,7 @@ impl HandlersBean {
         Some(pos)
     }
 
-    pub(super) fn remove_element(&mut self, target_id: usize) {
+    pub fn remove_element(&mut self, target_id: usize) {
         console::log_1(&"Before removal".into());
         let arr : Vec<String> = self.dep_links.iter_all().map(|e| format!("{} to {}",e.0, e.1.len())).collect();
         let s = "dep_links [".to_owned()+arr.join(", ").as_str()+"]";
@@ -282,7 +289,7 @@ impl HandlersBean {
 
     }
 
-    pub(super) fn set(&self, target_id: usize, value: &FieldSelector) {
+    pub fn set(&self, target_id: usize, value: &FieldSelector) {
         let id = self.get_elem_pos(target_id);
 
         self.elements[id].borrow_mut().set(*value);
@@ -298,7 +305,9 @@ impl HandlersBean {
                     let res = func(&val);
                     if res.is_some() {
                         let val = res.unwrap().clone();
-                        notif_stack.push((*id, val))
+                        for selector in val {
+                            notif_stack.push((*id, selector))
+                        }
                     }
                 }
             }
@@ -313,5 +322,47 @@ impl HandlersBean {
             }
         }
         id
+    }
+
+    fn add_component<T>(&mut self, mut component: T, parent: usize) where T : Component + 'static {
+        component.initialize(parent, self);
+        self.components.push(RefCell::new(Box::new(component)));
+    }
+
+    fn process_events(&mut self) {
+        let mut new_events = Vec::new();
+        for event in self.event_queue.iter() {
+            for component in self.components.iter() {
+                if let Some(evts) = component.borrow_mut().handle(event, self).as_mut() {
+                    new_events.append(evts);
+                }
+            }
+        }
+        self.event_queue = new_events;
+    }
+
+    fn push_event(&mut self, event: UserEvent) {
+        self.event_queue.push(event);
+    }
+}
+
+impl EventTarget for HandlersBean {
+    fn msg(&mut self, msg: &Msg) -> bool {
+
+
+        false
+    }
+}
+
+pub trait EventTarget {
+    fn msg(&mut self, msg: &Msg) -> bool;
+}
+
+impl EventTarget for WebEventDispatcher {
+    fn msg(&mut self, msg: &Msg) -> bool {
+        if !self.ui.msg(msg) {
+            self.app.store.borrow_mut().msg(msg);
+        }
+        true
     }
 }

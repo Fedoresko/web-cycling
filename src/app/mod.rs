@@ -9,6 +9,7 @@ pub use self::assets::*;
 
 pub mod ui;
 pub mod bluetooth;
+pub mod components;
 
 pub use self::ui::*;
 

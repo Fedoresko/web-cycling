@@ -3,7 +3,7 @@ use std::ops::Deref;
 use self::camera::*;
 use self::mouse::*;
 use crate::messaging::Msg;
-use crate::EventTarget;
+use crate::app::ui::messaging::EventTarget;
 
 mod camera;
 mod mouse;

@@ -11,8 +11,9 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use web_sys::*;
 use web_sys::WebGl2RenderingContext as GL;
+use app::ui::messaging::EventTarget;
 use crate::animation::{Animation, Animator, CompositeAnimation};
-use crate::bluetooth::bledevice::HRM;
+use crate::bluetooth::hrm::HRM;
 use crate::element::{ElemBuilder, LineStyle, ShapeSegment};
 use crate::fields::{FieldSelector, SizedStr, Vec4};
 
@@ -38,10 +39,6 @@ trait WC {
     fn load_textures(&self);
 }
 
-pub trait EventTarget {
-    fn msg(&mut self, msg: &Msg) -> bool;
-}
-
 /// Used to run the application from the web
 #[wasm_bindgen]
 pub struct WebClient {
@@ -52,15 +49,6 @@ pub struct WebClient {
 pub struct WebEventDispatcher {
     app: Rc<App>,
     ui: UI,
-}
-
-impl EventTarget for WebEventDispatcher {
-    fn msg(&mut self, msg: &Msg) -> bool {
-        if !self.ui.msg(msg) {
-            self.app.store.borrow_mut().msg(msg);
-        }
-        true
-    }
 }
 
 struct InnerWebClient {
@@ -74,6 +62,7 @@ struct InnerWebClient {
     colorbuffer: Option<WebGlFramebuffer>,
 
     fps_label_id: usize,
+    //hr_label_id: usize,
     last_render_times: VecDeque<f32>,
 }
 
@@ -101,17 +90,8 @@ impl InnerWebClient {
 
         Self::init_ui(&mut ui, w, h);
 
-        let fps_label = ElemBuilder::new(w as i32 - 100, h as i32 - 20, 100, 20).with_background(&[0.0,0.0,0.0,1.0])
-            .with_label("0 FPS", "Roboto-Light", 16.0, Vec4::from([1.0,1.0,1.0,1.0])).build();
-        let fps_label_id = ui.add_element(fps_label, 0).unwrap();
-        ui.add_bind(0, fps_label_id, Box::new(|fs : &FieldSelector| {
-            if let FieldSelector::Height(h) = *fs {
-                return Some(FieldSelector::Y(h as i32 - 20));
-            } else if let FieldSelector::Width(w) = *fs {
-                return Some(FieldSelector::X(w as i32 - 100));
-            }
-            None
-        }));
+        let fps_label_id = Self::create_fps_label(w, h, &mut ui);
+        //let heart_rate_id = Self::create_hr_control(h, &mut ui);
 
         let dispatcher = WebEventDispatcher {
             app: app.clone(),
@@ -137,8 +117,25 @@ impl InnerWebClient {
             renderbuffer,
             colorbuffer,
             fps_label_id,
+            //hr_label_id: heart_rate_id,
             last_render_times: VecDeque::new()
         }
+    }
+
+
+    fn create_fps_label(w: u32, h: u32, ui: &mut UI) -> usize {
+        let fps_label = ElemBuilder::new(w as i32 - 100, h as i32 - 20, 100, 20).with_background(&[0.0, 0.0, 0.0, 1.0])
+            .with_label("0 FPS", "Roboto-Light", 16.0, Vec4::from([1.0, 1.0, 1.0, 1.0])).build();
+        let fps_label_id = ui.add_element(fps_label, 0).unwrap();
+        ui.add_bind(0, fps_label_id, Box::new(|fs: &FieldSelector| {
+            if let FieldSelector::Height(h) = *fs {
+                return Some(vec![FieldSelector::Y(h as i32 - 20)]);
+            } else if let FieldSelector::Width(w) = *fs {
+                return Some(vec![FieldSelector::X(w as i32 - 100)]);
+            }
+            None
+        }));
+        fps_label_id
     }
 
     fn star_shape() -> Vec<ShapeSegment> {
@@ -236,29 +233,6 @@ impl InnerWebClient {
             let button_flare = Box::new(CompositeAnimation { animations });
             HandlerImpact::StartAnimation(button_flare, None)
         }));
-
-        let heart = ElemBuilder::new(200, h as i32 - 150, 130, 120)
-            .svg("HRM").build();
-        let hrm_id = ui.add_element(heart, 0).unwrap();
-        ui.add_bind(0, hrm_id, Box::new(|fs : &FieldSelector| {
-            if let FieldSelector::Height(h) = *fs {
-                return Some(FieldSelector::Y(h as i32  - 150));
-            }
-            None
-        }));
-
-        let heart_rate = ElemBuilder::new(350, h as i32 - 120, 150, 100)
-            .with_label("180", "SourceSansPro-Black", 96.0, Vec4::from([1.0,1.0,1.0,1.0])).build();
-        let heart_rate_id = ui.add_element(heart_rate, 0).unwrap();
-        ui.add_bind(hrm_id, heart_rate_id, Box::new(|fs : &FieldSelector| {
-            if let FieldSelector::X(x) = *fs {
-                return Some(FieldSelector::X(x  + 150));
-            } else if let FieldSelector::Y(y) = *fs {
-                return Some(FieldSelector::Y(y + 30));
-            }
-            None
-        }));
-
 
         let ac_logo = ElemBuilder::new(400, 200, 400, 250)
             .svg("test.svg").build();

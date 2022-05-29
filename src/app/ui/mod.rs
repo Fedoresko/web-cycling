@@ -9,10 +9,12 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 use web_sys::*;
 use web_sys::WebGl2RenderingContext as GL;
+use messaging::EventTarget;
 
 use crate::animation::Animator;
 use crate::app::ui::drag::Draggable;
-use crate::{EventTarget, FieldSelector, HRM};
+use crate::{FieldSelector, HRM};
+use crate::components::Component;
 use crate::messaging::HandlerCallback;
 use crate::messaging::HandlersBean;
 use crate::messaging::Msg;
@@ -20,7 +22,6 @@ use crate::render::framebuffer::Framebuffer;
 use crate::render::textured_quad::TexturedQuad;
 use crate::render::WebRenderer;
 use crate::State;
-use crate::text::RenderableString;
 use crate::ui::element::Element;
 
 pub mod animation;
@@ -129,19 +130,6 @@ impl UI {
             renderer.render_mesh(gl, state, "background", &background);
         }
 
-        // {
-        //     let font = assets.get_font("Roboto-Light").unwrap();
-        //     let rs = RenderableString {
-        //         string: String::from("Съешь ещё этих мягких французских булок, да выпей чаю."),
-        //         //string: String::from("The quick brown fox jumps over a lazy dog."),//The quick brown fox jumps over a lazy dog.
-        //         font_size: 16.0,
-        //         color: [0.0,0.0,0.0,1.0],
-        //         position: (200, 600),
-        //         font: font
-        //     };
-        //     renderer.render_mesh(gl, state, "text",&rs);
-        // }
-
         {
             for animation in self.handle().animations.borrow_mut().deref_mut() {
                 for res in animation.animator.animate() {
@@ -240,7 +228,7 @@ impl UI {
         self.handling.borrow_mut()
     }
 
-    pub fn add_bind(&mut self, source_id: usize, target_id: usize, map_fn: Box<dyn Fn(&FieldSelector) -> Option<FieldSelector>>) {
+    pub fn add_bind(&mut self, source_id: usize, target_id: usize, map_fn: Box<dyn Fn(&FieldSelector) -> Option<Vec<FieldSelector>>>) {
         self.handle_mut().add_bind(source_id, target_id, map_fn);
     }
 
