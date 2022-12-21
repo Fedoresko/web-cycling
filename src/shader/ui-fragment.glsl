@@ -103,7 +103,7 @@ void main() {
     gl_FragColor = vec4(mix(col.rgb, baseColor.rgb, baseColor.w), 1.0);
   } else {
     vec4 col = texture2D(iChannel0, uv);
-    gl_FragColor = vec4(mix(col.rgb, baseColor.rgb, baseColor.w), 1.0);;
+    gl_FragColor = vec4(mix(col.rgb, baseColor.rgb, baseColor.w), 1.0);
   }
 }
 

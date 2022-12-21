@@ -1,5 +1,6 @@
 use js_sys::Date;
 use crate::fields::FieldSelector;
+use crate::log;
 
 #[allow(dead_code)]
 pub struct Animation {
@@ -17,20 +18,35 @@ pub struct CompositeAnimation {
 }
 
 pub struct AnimationSequence {
-    pub animations: Vec<Box<dyn Animator>>,
-    pub repeat: bool,
+    animations: Vec<Box<dyn Animator>>,
+    repeat: bool,
+    current_animation: usize,
+    current_started: f64,
 }
 
 pub trait Animator {
     fn animate(&mut self) -> Vec<FieldSelector>;
     fn get_target(&self) -> usize;
     fn is_finished(&self) -> bool;
+    fn reset(&mut self);
 }
 
 static FAR_FUTURE: f64 = 1e20;
 
 #[allow(dead_code)]
 impl Animation {
+    pub fn pause(target_id: usize, duration: f64) -> Animation {
+        Animation {
+            target_id,
+            duration,
+            from : FieldSelector::None,
+            to : FieldSelector::None,
+            repeat: false,
+            started: Date::now(),
+            act: Box::new(|pg, from, to, | { FieldSelector::None }),
+        }
+    }
+
     pub fn linear(target_id: usize, from: FieldSelector, to: FieldSelector, duration: f64) -> Animation {
         Animation {
             target_id,
@@ -56,9 +72,36 @@ impl Animation {
     }
 }
 
+impl AnimationSequence {
+    pub fn new(animations: Vec<Box<dyn Animator>>, repeat: bool) -> AnimationSequence {
+        AnimationSequence {
+            animations,
+            repeat,
+            current_animation: 0,
+            current_started: Date::now(),
+        }
+    }
+}
+
 impl Animator for AnimationSequence {
     fn animate(&mut self) -> Vec<FieldSelector> {
-        todo!()
+        let len = self.animations.len();
+        let mut cur = self.animations.get_mut(self.current_animation).unwrap();
+        let res = cur.animate();
+        if cur.is_finished() {
+            if self.current_animation < len -1 {
+                log!("Animation change");
+                self.current_animation += 1;
+                cur = self.animations.get_mut(self.current_animation).unwrap();
+                cur.reset();
+            } else if self.repeat {
+                log!("Animation reset");
+                self.current_animation = 0;
+                cur = self.animations.get_mut(self.current_animation).unwrap();
+                cur.reset();
+            }
+        }
+        res
     }
 
     fn get_target(&self) -> usize {
@@ -66,7 +109,13 @@ impl Animator for AnimationSequence {
     }
 
     fn is_finished(&self) -> bool {
-        todo!()
+        !self.repeat && self.current_animation == self.animations.len() - 1 &&
+            self.animations.get(self.current_animation).unwrap().is_finished()
+    }
+
+    fn reset(&mut self) {
+        self.current_animation = 0;
+        self.animations.get_mut(self.current_animation).unwrap().reset();
     }
 }
 
@@ -96,6 +145,10 @@ impl Animator for Animation {
     fn is_finished(&self) -> bool {
         return self.started == FAR_FUTURE
     }
+
+    fn reset(&mut self) {
+        self.started = Date::now();
+    }
 }
 
 impl Animator for CompositeAnimation {
@@ -113,6 +166,12 @@ impl Animator for CompositeAnimation {
 
     fn is_finished(&self) -> bool {
         self.animations.iter().map(|a| a.is_finished()).reduce(|a,b| a && b).unwrap()
+    }
+
+    fn reset(&mut self) {
+        for anim in &mut self.animations {
+            anim.reset();
+        }
     }
 }
 

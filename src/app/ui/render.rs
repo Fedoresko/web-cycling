@@ -1,4 +1,4 @@
-use web_sys::{console, WebGl2RenderingContext};
+use web_sys::{WebGl2RenderingContext};
 use web_sys::WebGl2RenderingContext as GL;
 
 use crate::app::ui::element::{Element, LineStyle, ShapeSegment};
@@ -16,7 +16,7 @@ pub trait RenderableElement {
     fn is_blur(&self) -> bool;
     fn get_bg_color(&self) -> [f32; 4];
     fn get_position(&self) -> (i32, i32);
-    fn get_size(&self) -> (u32, u32);
+    fn get_size(&self) -> (i32, i32);
     fn get_gradient_stops_n(&self) -> u8;
     fn get_gradient_positions(&self) -> &[f32];
     fn get_gradient_colors(&self) -> &[Vec4];

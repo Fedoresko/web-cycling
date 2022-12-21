@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use web_sys::console;
 use crate::animation::Animator;
-use crate::element::{ElemBuilder, Element};
+use crate::element::{ElemBuilder, Element, UINode};
 use derivative::Derivative;
 use multimap::MultiMap;
 use crate::{FieldSelector, WebEventDispatcher};
@@ -81,14 +81,14 @@ pub type MappingFunction = Box<dyn Fn(&FieldSelector) -> Option<Vec<FieldSelecto
 /// This is an interface to process
 
 #[allow(dead_code)]
-pub enum HandlerImpact<'a> {
+pub enum HandlerImpact {
     AddBind(usize, usize, MappingFunction),
     StartAnimation(Box<dyn Animator>, Option<HandlerCallback>),
     RegisterHandler(usize, Msg, HandlerCallback),
     RemoveHandler(usize, Msg),
     AddElement(Element, usize),
     RemoveElement(usize),
-    Set(usize, &'a FieldSelector),
+    Set(usize, FieldSelector),
     None
 }
 
@@ -130,7 +130,7 @@ impl Default for HandlersBean {
 }
 
 impl HandlersBean {
-    pub(super) fn new(w: u32, h: u32) -> Self {
+    pub(super) fn new(w: i32, h: i32) -> Self {
         HandlersBean{
             animations: RefCell::new(Vec::new()),
             elem_handlers: HashMap::new(),
@@ -267,8 +267,10 @@ impl HandlersBean {
 
         let move_ref = &move_map;
         for element in &self.elements {
+            let id = element.borrow().get_id();
             let t = element.borrow().children().iter().map(|e| *move_ref.get(e).unwrap_or(e) ).collect();
             element.borrow_mut().children_elems = t;
+            //element.borrow_mut().set_id(*move_ref.get(&id).unwrap_or(&id));
         }
 
         // for mut dlink in &mut self.dep_links {
@@ -289,10 +291,10 @@ impl HandlersBean {
 
     }
 
-    pub fn set(&self, target_id: usize, value: &FieldSelector) {
+    pub fn set(&self, target_id: usize, value: FieldSelector) {
         let id = self.get_elem_pos(target_id);
 
-        self.elements[id].borrow_mut().set(*value);
+        self.elements[id].borrow_mut().set(value);
         let mut notif_stack = Vec::new();
         notif_stack.push((target_id, value.clone()));
 
@@ -314,6 +316,11 @@ impl HandlersBean {
         }
     }
 
+    pub(super) fn elem_by_id(&self, target_id : usize) -> &RefCell<Element> {
+        let pos = self.get_elem_pos(target_id);
+        self.elements.get(pos).unwrap()
+    }
+
     fn get_elem_pos(&self, target_id: usize) -> usize {
         let mut id = target_id;
         for (k, e) in self.elements.iter().enumerate() {
@@ -324,12 +331,13 @@ impl HandlersBean {
         id
     }
 
-    fn add_component<T>(&mut self, mut component: T, parent: usize) where T : Component + 'static {
-        component.initialize(parent, self);
+    pub (super) fn add_component<T>(&mut self, mut component: T, parent: usize) -> usize where T : Component + 'static {
+        let root = component.initialize(parent, self);
         self.components.push(RefCell::new(Box::new(component)));
+        root
     }
 
-    fn process_events(&mut self) {
+    pub (super) fn process_events(&mut self) {
         let mut new_events = Vec::new();
         for event in self.event_queue.iter() {
             for component in self.components.iter() {
@@ -341,15 +349,13 @@ impl HandlersBean {
         self.event_queue = new_events;
     }
 
-    fn push_event(&mut self, event: UserEvent) {
+    pub fn push_event(&mut self, event: UserEvent) {
         self.event_queue.push(event);
     }
 }
 
 impl EventTarget for HandlersBean {
     fn msg(&mut self, msg: &Msg) -> bool {
-
-
         false
     }
 }

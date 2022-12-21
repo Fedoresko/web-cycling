@@ -2,6 +2,7 @@ use crate::{Render, State, WebRenderer};
 use crate::shader::{Shader, ShaderKind};
 use web_sys::{WebGl2RenderingContext as GL};
 use svg_load::path::RenderablePath;
+use crate::picking::PickingRender;
 
 impl Render for RenderablePath {
     fn shader_kind(&self) -> ShaderKind { ShaderKind::UI }
@@ -81,6 +82,19 @@ impl Render for RenderablePath {
 
         let num_indices = self.vertices.indices.len();
         gl.draw_elements_with_i32(GL::TRIANGLES, num_indices as i32, GL::UNSIGNED_SHORT, 0);
+    }
+}
+
+impl PickingRender for RenderablePath {
+    fn render_for_pick(&self, gl: &GL, shader: &Shader, _: &WebRenderer) -> usize {
+        let pos_attrib = gl.get_attrib_location(&shader.program, "position");
+        gl.enable_vertex_attrib_array(pos_attrib as u32);
+
+        self.buffer_attributes(gl, shader);
+
+        let num_indices = self.vertices.indices.len();
+        gl.draw_elements_with_i32(GL::TRIANGLES, num_indices as i32, GL::UNSIGNED_SHORT, 0);
+        0
     }
 }
 

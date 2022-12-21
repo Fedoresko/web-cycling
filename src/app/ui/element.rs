@@ -4,14 +4,14 @@ use crate::app::ui::render::RenderableElement;
 use crate::fields::{FieldSelector, Vec4};
 use crate::text::RenderableString;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct LineStyle {
     pub color: [f32; 4],
     pub width: f32,
     pub dashed: bool,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct ShapeSegment {
     pub x: f32,
     pub y: f32,
@@ -19,6 +19,7 @@ pub struct ShapeSegment {
     pub event_id: Option<i32>,
 }
 
+#[derive(Debug)]
 pub struct Element {
     pub (super) id: usize,
     shape: Vec<ShapeSegment>,
@@ -27,8 +28,8 @@ pub struct Element {
     bgcolor: Vec4,
     pub (super) x: i32,
     pub (super) y: i32,
-    width: u32,
-    height: u32,
+    width: i32,
+    height: i32,
     pub (super) children_elems: Vec<usize>,
     pub (super) parent_element: usize,
     pub (super) draggable: Option<DraggableElement>,
@@ -39,6 +40,7 @@ pub struct Element {
     gradient_end: Option<(f32, f32)>,
     svg: Option<String>,
     label: Option<RenderableString>,
+    pub(super) direct_drag: bool,
 }
 
 pub struct ElemBuilder {
@@ -49,8 +51,8 @@ pub struct ElemBuilder {
     bgcolor: Vec4,
     x: i32,
     y: i32,
-    width: u32,
-    height: u32,
+    width: i32,
+    height: i32,
     draggable: bool,
     gradient_stops: u8,
     gradient_pos: Option<Vec<f32>>,
@@ -59,18 +61,33 @@ pub struct ElemBuilder {
     gradient_end: Option<(f32, f32)>,
     svg: Option<String>,
     label: Option<RenderableString>,
+    direct_drag: bool,
 }
 
-impl Element  {
-    pub fn children(&self) -> &[usize] {
+pub trait UINode {
+    fn children(&self) -> &[usize];
+    fn set_id(&mut self, id: usize);
+    fn set(&mut self, field: FieldSelector);
+    fn get_id(&self) -> usize;
+    fn get_parent(&self) -> usize;
+}
+
+impl Element {
+    pub fn get_svg(&self) -> &Option<String> {
+        &self.svg
+    }
+}
+
+impl UINode for Element  {
+    fn children(&self) -> &[usize] {
         self.children_elems.as_slice()
     }
 
-    pub (super) fn set_id(&mut self, id: usize) {
+    fn set_id(&mut self, id: usize) {
         self.id = id;
     }
 
-    pub (super) fn set(&mut self, field: FieldSelector) {
+    fn set(&mut self, field: FieldSelector) {
         match field {
             FieldSelector::X(value) => { self.x = value; }
             FieldSelector::Y(value) => { self.y = value; }
@@ -89,15 +106,16 @@ impl Element  {
             FieldSelector::GradientEnd(value) => { self.gradient_end = Some( value ); }
             FieldSelector::LabelText(value) => { let s : String = value.iter().collect();  self.label.as_mut().unwrap().string = String::from(s.trim()); }
             FieldSelector::LabelColor(value) => { self.label.as_mut().unwrap().color = value; }
+            FieldSelector::None => {}
         }
-    }
+   }
 
-    pub fn get_id(&self) -> usize {
+    fn get_id(&self) -> usize {
         self.id
     }
 
-    pub fn get_svg(&self) -> &Option<String> {
-        &self.svg
+    fn get_parent(&self) -> usize {
+        self.parent_element
     }
 }
 
@@ -124,7 +142,7 @@ impl ShapeSegment {
 
 #[allow(dead_code)]
 impl ElemBuilder {
-    pub fn new(x: i32, y: i32, w: u32, h: u32) -> Self {
+    pub fn new(x: i32, y: i32, w: i32, h: i32) -> Self {
         ElemBuilder {
             id: 0,
             shape: Vec::new(),
@@ -143,6 +161,7 @@ impl ElemBuilder {
             gradient_colors: None,
             svg: None,
             label: None,
+            direct_drag: false,
         }
     }
 
@@ -181,6 +200,11 @@ impl ElemBuilder {
 
     pub fn blur_on(&mut self) -> &mut Self {
         self.blur = true;
+        self
+    }
+
+    pub fn direct_drag(&mut self) -> &mut Self {
+        self.direct_drag = true;
         self
     }
 
@@ -237,6 +261,7 @@ impl ElemBuilder {
             gradient_colors: self.gradient_colors.clone(),
             svg: self.svg.clone(),
             label: self.label.clone(),
+            direct_drag: self.direct_drag,
         };
         elem
     }
@@ -264,7 +289,7 @@ impl RenderableElement for Element {
     }
 
     fn get_position(&self) -> (i32, i32) {
-        if self.draggable.is_some() {
+        if self.draggable.is_some() && self.direct_drag {
             (
                 self.x + self.draggable.as_ref().unwrap().drag_x,
                 self.y + self.draggable.as_ref().unwrap().drag_y,
@@ -274,7 +299,7 @@ impl RenderableElement for Element {
         }
     }
 
-    fn get_size(&self) -> (u32, u32) {
+    fn get_size(&self) -> (i32, i32) {
         (self.width, self.height)
     }
 

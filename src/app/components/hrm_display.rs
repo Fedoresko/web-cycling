@@ -17,7 +17,7 @@ impl Component for HRMDisplay {
 
     fn handle(&mut self, event: &UserEvent, ui: &HandlersBean) -> Option<Vec<UserEvent>> {
         if let HrChanged(hr) = event {
-            ui.set(self.text, &FieldSelector::LabelText(SizedStr::sizify(format!("{}", hr).as_str())))
+            ui.set(self.text, FieldSelector::LabelText(SizedStr::sizify(format!("{}", hr).as_str())))
         }
         None
     }
@@ -39,7 +39,7 @@ impl HRMDisplay {
         self.root_el = ui.add_element(root, parent).unwrap();
 
         let heart = ElemBuilder::new(0, 0, 130, 120)
-            .svg("HRM").build();
+            .svg("HR").build();
         self.heart_img = ui.add_element(heart, self.root_el).unwrap();
 
 

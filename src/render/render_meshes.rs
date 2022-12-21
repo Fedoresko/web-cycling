@@ -17,7 +17,7 @@ impl WebRenderer {
     
         self.shader_sys.use_program(gl, UIPicking);
         let shader = self.shader_sys.get_shader(&UIPicking).unwrap();
-        mesh.render_for_pick(gl, &shader)
+        mesh.render_for_pick(gl, &shader, self)
     }
 
     pub fn render_mesh(&self, gl: &GL, state: &State, mesh_name: &str, mesh: &impl Render) {

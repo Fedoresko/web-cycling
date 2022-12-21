@@ -9,8 +9,8 @@ use std::slice::Iter;
 pub enum FieldSelector {
     X(i32),
     Y(i32),
-    Width(u32),
-    Height(u32),
+    Width(i32),
+    Height(i32),
     BGColor(Vec4),
     GradientPos0(f32),
     GradientColors0(Vec4),
@@ -24,6 +24,7 @@ pub enum FieldSelector {
     GradientEnd((f32,f32)),
     LabelText(SizedStr),
     LabelColor(Vec4),
+    None
 }
 
 pub type SizedStr = [char; 256];
@@ -55,8 +56,8 @@ impl Add for FieldSelector {
         match self {
             FieldSelector::X(v) => { if let FieldSelector::X(other) = rhs { FieldSelector::X(v + other) } else { panic!("wrong other type") } }
             FieldSelector::Y(v) => { if let FieldSelector::Y(other) = rhs { FieldSelector::Y(v + other) } else { panic!("wrong other type") } }
-            FieldSelector::Width(v) => { if let FieldSelector::Width(other) = rhs { FieldSelector::Width((v + other) as u32) } else { panic!("wrong other type") } }
-            FieldSelector::Height(v) => { if let FieldSelector::Height(other) = rhs { FieldSelector::Height((v + other) as u32) } else { panic!("wrong other type") } }
+            FieldSelector::Width(v) => { if let FieldSelector::Width(other) = rhs { FieldSelector::Width((v + other)) } else { panic!("wrong other type") } }
+            FieldSelector::Height(v) => { if let FieldSelector::Height(other) = rhs { FieldSelector::Height((v + other)) } else { panic!("wrong other type") } }
             FieldSelector::BGColor(v) => { if let FieldSelector::BGColor(other) = rhs { FieldSelector::BGColor(v + other) } else { panic!("wrong other type") } }
             FieldSelector::GradientPos0(v) => { if let FieldSelector::GradientPos0(other) = rhs { FieldSelector::GradientPos0(v + other) } else { panic!("wrong other type") } }
             FieldSelector::GradientColors0(v) => { if let FieldSelector::GradientColors0(other) = rhs { FieldSelector::GradientColors0(v + other) } else { panic!("wrong other type") } }
@@ -70,6 +71,7 @@ impl Add for FieldSelector {
             FieldSelector::GradientEnd(v) => { if let FieldSelector::GradientEnd(other) = rhs { FieldSelector::GradientEnd((v.0 + other.0, v.1 + other.1)) } else { panic!("wrong other type") } }
             FieldSelector::LabelColor(v) => { if let FieldSelector::LabelColor(other) = rhs { FieldSelector::LabelColor(v + other) } else { panic!("wrong other type") } }
             FieldSelector::LabelText(v) => { panic!("cant add label text") }
+            FieldSelector::None => { FieldSelector::None }
         }
     }
 }
@@ -81,8 +83,8 @@ impl  Sub for FieldSelector {
         match self {
             FieldSelector::X(v) => { if let FieldSelector::X(other) = rhs { FieldSelector::X(v - other) } else { panic!("wrong other type") } }
             FieldSelector::Y(v) => { if let FieldSelector::Y(other) = rhs { FieldSelector::Y(v - other) } else { panic!("wrong other type") } }
-            FieldSelector::Width(v) => { if let FieldSelector::Width(other) = rhs { FieldSelector::Width((v - other) as u32) } else { panic!("wrong other type") } }
-            FieldSelector::Height(v) => { if let FieldSelector::Height(other) = rhs { FieldSelector::Height((v - other) as u32) } else { panic!("wrong other type") } }
+            FieldSelector::Width(v) => { if let FieldSelector::Width(other) = rhs { FieldSelector::Width((v - other)) } else { panic!("wrong other type") } }
+            FieldSelector::Height(v) => { if let FieldSelector::Height(other) = rhs { FieldSelector::Height((v - other)) } else { panic!("wrong other type") } }
             FieldSelector::BGColor(v) => { if let FieldSelector::BGColor(other) = rhs { FieldSelector::BGColor(v - other) } else { panic!("wrong other type") } }
             FieldSelector::GradientPos0(v) => { if let FieldSelector::GradientPos0(other) = rhs { FieldSelector::GradientPos0(v - other) } else { panic!("wrong other type") } }
             FieldSelector::GradientColors0(v) => { if let FieldSelector::GradientColors0(other) = rhs { FieldSelector::GradientColors0(v + other) } else { panic!("wrong other type") } }
@@ -96,6 +98,7 @@ impl  Sub for FieldSelector {
             FieldSelector::GradientEnd(v) => { if let FieldSelector::GradientEnd(other) = rhs { FieldSelector::GradientEnd((v.0 - other.0, v.1 - other.1)) } else { panic!("wrong other type") } }
             FieldSelector::LabelColor(v) => { if let FieldSelector::LabelColor(other) = rhs { FieldSelector::LabelColor(v - other) } else { panic!("wrong other type") } }
             FieldSelector::LabelText(v) => { panic!("cant subtract label text") }
+            FieldSelector::None => { FieldSelector::None }
         }
     }
 }
@@ -107,8 +110,8 @@ impl  Mul<f64> for FieldSelector {
         match self {
             FieldSelector::X(v) => { FieldSelector::X( (v as f64 * rhs) as i32) }
             FieldSelector::Y(v) => { FieldSelector::Y( (v as f64 * rhs) as i32) }
-            FieldSelector::Width(v) => { FieldSelector::Width( (v as f64 * rhs) as u32) }
-            FieldSelector::Height(v) => { FieldSelector::Height( (v as f64 * rhs) as u32) }
+            FieldSelector::Width(v) => { FieldSelector::Width( (v as f64 * rhs) as i32) }
+            FieldSelector::Height(v) => { FieldSelector::Height( (v as f64 * rhs) as i32) }
             FieldSelector::BGColor(v) => { FieldSelector::BGColor(v * rhs) }
             FieldSelector::GradientPos0(v) => { FieldSelector::GradientPos0(v * rhs as f32) }
             FieldSelector::GradientColors0(v) => { FieldSelector::GradientColors0(v * rhs) }
@@ -122,6 +125,7 @@ impl  Mul<f64> for FieldSelector {
             FieldSelector::GradientEnd(v) => { FieldSelector::GradientEnd( (v.0 * rhs as f32, v.1 * rhs as f32) ) }
             FieldSelector::LabelColor(v) => { FieldSelector::LabelColor(v * rhs) }
             FieldSelector::LabelText(v) => { panic!("cant multiply label text") }
+            FieldSelector::None => { FieldSelector::None }
         }
     }
 }

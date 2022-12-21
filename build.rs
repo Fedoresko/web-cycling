@@ -61,12 +61,15 @@ fn main() {
     images.insert("test.svg", load_svg(r"./amc.svg"));
     images.insert("HR", load_svg(r"./heart1.svg"));
     images.insert("HRM", load_svg(r"./heart.svg"));
+    images.insert("ArrowUp", load_svg(r"./arrow_up.svg"));
+    images.insert("ArrowDown", load_svg(r"./arrow_down.svg"));
     let svg = bincode::serialize(&images).unwrap();
     let mut f = File::create("./svgs.bytes").unwrap();
     f.write_all(&svg[..]).unwrap();
 
     println!("Loading fonts...");
 
+    
     let mut fonts = HashMap::new();
     fonts.insert("Roboto-Light", load_font(r"./Roboto-Light.ttf", GLYPHS_REQUIRED).unwrap());
     fonts.insert("SourceSansPro-Black", load_font(r"./SourceSansPro-Black.ttf", GLYPHS_REQUIRED).unwrap());

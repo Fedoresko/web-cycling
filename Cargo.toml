@@ -25,6 +25,8 @@ usvg = ">=0.15.0"
 svg-load = { path = "../svg-load" }
 brotli = ">=3.3.0"
 multimap = ">=0.8.3"
+getrandom = { version=">=0.2.6", features = ["js"] }
+rand = ">=0.8.5"
 
 [build-dependencies]
 bincode = "=1.0.1"

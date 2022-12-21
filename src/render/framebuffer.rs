@@ -7,9 +7,6 @@ pub struct Framebuffer {
     pub depth_texture: Option<WebGlTexture>,
 }
 
-const RENDERBUFFER: i32 = 0;
-const COLORBUFFER: i32 = 1;
-
 impl Framebuffer {
     pub fn create_framebuffers_multisampling(w: i32,
                                              h: i32,

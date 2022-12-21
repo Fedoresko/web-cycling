@@ -1,5 +1,6 @@
 use crate::app::ui::Element;
 
+#[derive(Debug)]
 pub struct DraggableElement {
     pub drag_x: i32,
     pub drag_y: i32,
@@ -36,8 +37,10 @@ impl Draggable for Element {
     }
 
     fn process_drop(&mut self) {
-        self.x += self.draggable.as_mut().unwrap().drag_x;
-        self.y += self.draggable.as_mut().unwrap().drag_y;
+        if self.direct_drag {
+            self.x += self.draggable.as_mut().unwrap().drag_x;
+            self.y += self.draggable.as_mut().unwrap().drag_y;
+        }
         self.draggable.as_mut().unwrap().drag_x = 0;
         self.draggable.as_mut().unwrap().drag_y = 0;
     }

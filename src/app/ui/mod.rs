@@ -14,7 +14,8 @@ use messaging::EventTarget;
 use crate::animation::Animator;
 use crate::app::ui::drag::Draggable;
 use crate::{FieldSelector, HRM};
-use crate::components::Component;
+use crate::components::{Component, UserEvent};
+use crate::components::UserEvent::{HrChanged, ProcessDrag, ProcessDrop};
 use crate::messaging::HandlerCallback;
 use crate::messaging::HandlersBean;
 use crate::messaging::Msg;
@@ -22,7 +23,8 @@ use crate::render::framebuffer::Framebuffer;
 use crate::render::textured_quad::TexturedQuad;
 use crate::render::WebRenderer;
 use crate::State;
-use crate::ui::element::Element;
+use crate::ui::element::{Element, UINode};
+use std::convert::TryFrom;
 
 pub mod animation;
 pub mod drag;
@@ -34,6 +36,7 @@ pub mod fields;
 pub mod messaging;
 pub mod text;
 pub mod geom;
+pub mod chart;
 
 pub struct UI {
     canvas: HtmlCanvasElement,
@@ -47,7 +50,7 @@ pub struct UI {
     start_drag_x: i32,
     start_drag_y: i32,
 
-    handling: RefCell<HandlersBean>,
+    handling: Rc<RefCell<HandlersBean>>,
 
     _svg: Option<Vec<RenderablePath>>,
 }
@@ -73,7 +76,7 @@ impl UI {
             &gl,
         );
 
-        let handling = HandlersBean::new(w, h);
+        let handling = HandlersBean::new(w as i32, h as i32);
 
         UI {
             canvas,
@@ -84,7 +87,7 @@ impl UI {
             drag_elem: None,
             start_drag_x: 0,
             start_drag_y: 0,
-            handling: RefCell::new(handling),
+            handling: Rc::new(RefCell::new(handling)),
             _svg: None,
         }
     }
@@ -133,7 +136,7 @@ impl UI {
         {
             for animation in self.handle().animations.borrow_mut().deref_mut() {
                 for res in animation.animator.animate() {
-                    self.handle().set(animation.animator.get_target(), &res);
+                    self.handle().set(animation.animator.get_target(), res);
                 }
             }
 
@@ -190,7 +193,7 @@ impl UI {
         )
             .expect("Cannot pick color from GL context");
 
-        let col = usize::from_be_bytes(data) >> 8;
+        let col = u32::from_be_bytes(data) >> 8;
 
         console::log_1(
             &format!(
@@ -201,23 +204,25 @@ impl UI {
         );
 
         gl.bind_framebuffer(GL::FRAMEBUFFER, None);
-        if col>0 { Some(col) } else {None}
+        if col>0 { Some(usize::try_from(col).unwrap()) } else {None}
     }
 
     fn cancel_drag(&mut self) {
         console::log_1(&format!("cancel_drag").into());
-        self.handle().elements[self.drag_elem.unwrap()].borrow_mut().process_cancel();
+        self.handle().elem_by_id(self.drag_elem.unwrap()).borrow_mut().process_cancel();
         self.drag_elem = None;
     }
 
     fn process_drag(&mut self, x: i32, y: i32) {
         console::log_1(&format!("process_drag {} {}", x, y).into());
-        self.handle().elements[self.drag_elem.unwrap()].borrow_mut().process_drag(x, y);
+        self.handle().elem_by_id(self.drag_elem.unwrap()).borrow_mut().process_drag(x, y);
+        self.handle_mut().push_event(ProcessDrag((self.drag_elem.unwrap(),x,y)));
     }
 
     fn complete_drag(&mut self, x: i32, y: i32) {
         console::log_1(&format!("complete_drag {} {}", x, y).into());
-        self.handle().elements[self.drag_elem.unwrap()].borrow_mut().process_drop();
+        self.handle().elem_by_id(self.drag_elem.unwrap()).borrow_mut().process_drop();
+        self.handle_mut().push_event(ProcessDrop((self.drag_elem.unwrap(),x,y)));
     }
 
     fn handle(&self) -> Ref<HandlersBean> {
@@ -259,14 +264,26 @@ impl UI {
         self.handle_mut().remove_element(target_id)
     }
 
-    pub fn set(&self, target_id: usize, value: &FieldSelector) {
+    pub fn set(&self, target_id: usize, value: FieldSelector) {
         self.handle().set(target_id, value);
+    }
+
+    pub fn add_component<T>(&mut self, component: T, parent: usize) -> usize where T : Component + 'static {
+        self.handling.borrow_mut().add_component(component, parent)
+    }
+
+    pub fn emit(&self, event: UserEvent) {
+        self.handling.borrow_mut().push_event(event);
     }
 }
 
 impl EventTarget for UI {
     fn msg(&mut self, msg: &Msg) -> bool {
         match msg {
+            Msg::AdvanceClock(dt) => {
+                self.handling.as_ref().borrow_mut().process_events();
+                false
+            }
             Msg::MouseDown(x, y) => {
                 console::log_1(&format!("mouse_down").into());
 
@@ -293,7 +310,7 @@ impl EventTarget for UI {
                         false
                     };
 
-                    if self.handle().elements[target_id].borrow().is_draggable() {
+                    if self.handle().elem_by_id(target_id).borrow().is_draggable() {
                         console::log_1(&format!("starting drag for {}", target_id).into());
                         self.drag_elem = pick;
                         self.start_drag_x = x;
@@ -315,7 +332,11 @@ impl EventTarget for UI {
                 if *key_code == 32 { //Spacebar
                     self.toggle_fullscreen();
                 } else if *key_code == 67 { //'C'
-                    let hrm = HRM::new(|js| {}, |js| {});
+                    let mut handle = self.handling.clone();
+                    let hrm = HRM::new(move|js| {
+                        let hr = js.as_f64().unwrap();
+                        handle.borrow_mut().push_event(HrChanged(hr as i32))
+                    }, |js| {});
                     hrm.reconnect_hrm();
                 }
                 false
@@ -323,10 +344,10 @@ impl EventTarget for UI {
             Msg::ResizeViewport(w, h) => {
                 self.canvas.set_width(*w as u32);
                 self.canvas.set_height(*h as u32);
-                self.handle().set(0, &FieldSelector::Width(*w as u32));
-                self.handle().set(0, &FieldSelector::Height(*h as u32));
+                self.handle().set(0, FieldSelector::Width(*w));
+                self.handle().set(0, FieldSelector::Height(*h));
                 self.gl.delete_framebuffer( self.pick_fbo.as_ref() );
-                let (_screen_texture, fbo) = Framebuffer::create_texture_frame_buffer(*w as i32, *h as i32, &self.gl);
+                let (_screen_texture, fbo) = Framebuffer::create_texture_frame_buffer(*w, *h, &self.gl);
                 self.pick_fbo = fbo;
                 false
             }

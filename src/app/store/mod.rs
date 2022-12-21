@@ -1,12 +1,16 @@
+use std::cell::RefCell;
 use std::ops::Deref;
+use std::rc::Rc;
 
 use self::camera::*;
 use self::mouse::*;
 use crate::messaging::Msg;
 use crate::app::ui::messaging::EventTarget;
+use crate::timedata::HrmData;
 
 mod camera;
 mod mouse;
+pub mod timedata;
 
 pub struct Store {
     pub state: StateWrapper,
@@ -38,6 +42,7 @@ pub struct State {
     d_width: i32,
     d_height: i32,
     show_pick: bool,
+    hr_data: Rc<RefCell<HrmData>>,
 }
 
 impl State {
@@ -53,6 +58,9 @@ impl State {
             d_width: dw,
             d_height: dh,
             show_pick: false,
+            hr_data: Rc::new(RefCell::new( HrmData {
+                data : Vec::new()
+            })),
         }
     }
 
@@ -87,6 +95,10 @@ impl State {
 
     pub fn show_pick(&self) -> bool {
         self.show_pick
+    }
+
+    pub fn get_hr_data(&self) -> Rc<RefCell<HrmData>> {
+        self.hr_data.clone()
     }
 
     pub fn msg(&mut self, msg: &Msg) -> bool {
